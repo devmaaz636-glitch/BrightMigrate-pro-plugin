@@ -120,7 +120,11 @@ class SiteExport {
 			throw new ArchiveException( 'Could not start the export.' );
 		}
 
-		$dir             = self::job_dir( $id, true );
+		$dir = self::job_dir( $id, true );
+		if ( 'database' === $scope ) {
+			$list = Stream::open( $dir . '/files.txt', 'wb' );
+			fclose( $list );
+		}
 		$now             = gmdate( 'Ymd-His' );
 		$context         = self::context();
 		$context['only'] = self::scope_prefix( $scope );
@@ -1188,8 +1192,12 @@ class SiteExport {
 	 */
 	private static function excluded( $relative, array $excludes, array $context ) {
 		$path = str_replace( '\\', '/', $relative );
-		if ( isset( $context['only'] ) && is_string( $context['only'] ) && '' !== $context['only'] && 0 !== strpos( $path, $context['only'] ) ) {
-			return true;
+		$only = ( isset( $context['only'] ) && is_string( $context['only'] ) ) ? $context['only'] : '';
+		if ( '' !== $only && 0 !== strpos( $path, $only ) ) {
+			$folder = rtrim( $path, '/' ) . '/';
+			if ( 0 !== strpos( $only, $folder ) ) {
+				return true;
+			}
 		}
 		if ( isset( $context['storage'] ) && '' !== $context['storage'] ) {
 			$storage_rel = self::relative( WP_CONTENT_DIR, (string) $context['storage'] );
