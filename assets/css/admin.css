@@ -22,21 +22,36 @@
 	margin-top: 1.5em;
 }
 
-.bmx-card,
-.bmx-summary,
-.bmx-drop {
+.bmx-lead {
+	max-width: 760px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.bmx-panel,
+.bmx-summary {
 	background: #fff;
-	border: 1px solid #dcdcde;
-	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
-	max-width: 720px;
-	margin-top: 16px;
-	padding: 20px 24px;
+	border: 1px solid #c3c4c7;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+	max-width: 760px;
+	margin: 20px auto 0;
+	padding: 28px 32px 32px;
+}
+
+.bmx-find {
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+}
+
+.bmx-find [data-bmx-pairs] {
+	flex: 1;
 }
 
 .bmx-replace-row {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 12px;
+	gap: 10px;
 	margin-bottom: 8px;
 }
 
@@ -45,54 +60,103 @@
 }
 
 .bmx-replace-row input,
-.bmx-card input[type="password"],
-.bmx-drop input[type="password"] {
+.bmx-panel input[type="password"] {
 	display: block;
 	width: 100%;
-	margin-top: 4px;
+	height: 40px;
+	margin: 0;
+	padding: 0 12px;
+}
+
+.bmx-plus {
+	flex: 0 0 40px;
+	width: 40px;
+	height: 40px;
+	border: 0;
+	border-radius: 50%;
+	background: #2271b1;
+	color: #fff;
+	font-size: 24px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.bmx-plus:hover,
+.bmx-plus:focus {
+	background: #135e96;
+	color: #fff;
+}
+
+.bmx-advanced {
+	margin-top: 8px;
+}
+
+.bmx-advanced summary {
+	display: inline-block;
+	color: #2271b1;
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.bmx-excludes {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 6px 18px;
+	margin: 14px 0 0;
+	padding: 0;
+	border: 0;
 }
 
 .bmx-excludes label {
 	display: block;
-	margin: 6px 0;
+	margin: 0;
 }
 
-.bmx-advanced {
-	margin-top: 16px;
+.bmx-password,
+.bmx-advanced p {
+	margin-top: 14px;
 }
 
-.bmx-export-button {
+.bmx-launch {
+	margin-top: 28px;
+	text-align: center;
+}
+
+.bmx-split {
 	display: inline-flex;
 	align-items: stretch;
-	margin-top: 8px;
 	padding: 0;
 	border: 0;
-	border-radius: 4px;
+	border-radius: 3px;
 	background: #2271b1;
 	color: #fff;
-	font-size: 14px;
-	font-weight: 600;
-	line-height: 1.4;
+	font-size: 15px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	line-height: 1.2;
+	text-transform: uppercase;
 	cursor: pointer;
 	overflow: hidden;
+	box-shadow: 0 2px 0 #0a4b78;
 }
 
-.bmx-export-button-label,
-.bmx-export-button-target {
-	padding: 12px 18px;
+.bmx-split-label,
+.bmx-split-target {
+	padding: 16px 26px;
 }
 
-.bmx-export-button-target {
+.bmx-split-target {
 	background: #135e96;
+	border-left: 1px solid rgba(255, 255, 255, 0.28);
 }
 
-.bmx-export-button:hover,
-.bmx-export-button:focus {
+.bmx-split:hover,
+.bmx-split:focus {
 	background: #135e96;
 	color: #fff;
 }
 
-.bmx-export-button:disabled {
+.bmx-split:disabled {
 	opacity: 0.7;
 	cursor: progress;
 }
@@ -108,23 +172,49 @@
 	padding: 16px;
 }
 
-.bmx-modal[hidden] {
-	display: none;
+.bmx-modal[hidden],
+.bmx-modal [hidden] {
+	display: none !important;
 }
 
 .bmx-modal-card {
-	width: min(480px, 100%);
+	width: min(440px, 100%);
 	background: #fff;
-	border-radius: 4px;
-	padding: 24px;
-	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+	border-radius: 2px;
+	padding: 36px 32px 24px;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+	text-align: center;
+}
+
+.bmx-modal-card h2 {
+	margin: 0;
+	font-size: 20px;
+	font-weight: 600;
+}
+
+.bmx-percent {
+	margin: 10px 0 14px;
+	font-size: 64px;
+	font-weight: 300;
+	line-height: 1;
+	color: #1d2327;
+}
+
+.bmx-modal-status {
+	min-height: 1.4em;
+	margin: 12px 0 0;
+	color: #50575e;
+}
+
+.bmx-modal .bmx-actions {
+	justify-content: center;
 }
 
 .bmx-progress {
-	height: 16px;
-	margin: 12px 0;
+	height: 8px;
+	margin: 0;
 	background: #dcdcde;
-	border-radius: 8px;
+	border-radius: 0;
 	overflow: hidden;
 }
 
@@ -133,12 +223,19 @@
 	height: 100%;
 	width: 0;
 	background: #2271b1;
+	transition: width 0.2s linear;
 }
 
 .bmx-drop {
 	border-style: dashed;
 	border-width: 2px;
 	text-align: center;
+	padding: 48px 32px;
+}
+
+.bmx-drop-title {
+	margin: 0 0 8px;
+	font-size: 18px;
 }
 
 .bmx-drop.is-over {
@@ -160,4 +257,28 @@
 .bmx-summary dd {
 	margin: 0;
 	overflow-wrap: anywhere;
+}
+
+.bmx-backups {
+	padding: 0;
+	max-width: none;
+}
+
+.bmx-backups table {
+	border: 0;
+	box-shadow: none;
+}
+
+@media (max-width: 782px) {
+	.bmx-excludes {
+		grid-template-columns: 1fr;
+	}
+
+	.bmx-percent {
+		font-size: 48px;
+	}
+
+	.bmx-panel {
+		padding: 20px 16px 24px;
+	}
 }

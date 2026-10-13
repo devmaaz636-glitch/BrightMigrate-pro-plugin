@@ -89,6 +89,29 @@ abstract class Screen {
 			);
 		}
 
+		$this->render_progress();
 		echo '</div>';
+	}
+
+	/**
+	 * Shared progress window for export, import, and download.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return void
+	 */
+	private function render_progress() {
+		echo '<div class="bmx-modal" hidden data-bmx-modal role="dialog" aria-modal="true" aria-labelledby="bmx-modal-title">';
+		echo '<div class="bmx-modal-card">';
+		echo '<h2 id="bmx-modal-title" data-bmx-modal-title>' . esc_html__( 'Working', 'brightmigrate-pro' ) . '</h2>';
+		echo '<p class="bmx-percent" data-bmx-percent>0%</p>';
+		echo '<div class="bmx-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-bmx-progress><span data-bmx-progress-bar></span></div>';
+		echo '<p class="bmx-modal-status" data-bmx-modal-message></p>';
+		echo '<p class="bmx-actions">';
+		echo '<button type="button" class="button" data-bmx-stop>' . esc_html__( 'Stop', 'brightmigrate-pro' ) . '</button>';
+		echo '<button type="button" class="button button-primary" data-bmx-save hidden>' . esc_html__( 'Download', 'brightmigrate-pro' ) . '</button>';
+		echo '<button type="button" class="button" data-bmx-copy hidden>' . esc_html__( 'Copy link', 'brightmigrate-pro' ) . '</button>';
+		echo '<button type="button" class="button" data-bmx-close hidden>' . esc_html__( 'Close', 'brightmigrate-pro' ) . '</button>';
+		echo '</p></div></div>';
 	}
 }

@@ -51,6 +51,7 @@ class BackupsScreen extends Screen {
 		);
 		$rows    = SiteExport::archives();
 
+		echo '<div class="bmx-panel bmx-backups">';
 		echo '<table class="widefat striped">';
 		echo '<caption class="screen-reader-text">' . esc_html__( 'Stored archives', 'brightmigrate-pro' ) . '</caption>';
 		echo '<thead><tr>';
@@ -71,11 +72,16 @@ class BackupsScreen extends Screen {
 			echo '<td>' . esc_html( Format::bytes( $row['size'] ) ) . '</td>';
 			echo '<td>' . esc_html( $this->archive_date( (int) $row['date'] ) ) . '</td>';
 			echo '<td>' . esc_html( $this->archive_source( $name ) ) . '</td>';
-			echo '<td><a href="' . esc_url( (string) $row['url'] ) . '">' . esc_html__( 'Download', 'brightmigrate-pro' ) . '</a></td>';
+			printf(
+				'<td><button type="button" class="button bmx-file-download" data-bmx-file-url="%1$s" data-bmx-file-name="%2$s">%3$s</button></td>',
+				esc_url( (string) $row['url'] ),
+				esc_attr( $name ),
+				esc_html__( 'Download', 'brightmigrate-pro' )
+			);
 			echo '</tr>';
 		}
 
-		echo '</tbody></table>';
+		echo '</tbody></table></div>';
 	}
 
 	/**

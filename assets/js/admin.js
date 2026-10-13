@@ -5,6 +5,9 @@
 (function () {
 	'use strict';
 
+	let onStop = function () {};
+	let announced = -1;
+
 	/**
 	 * Localized settings printed by PHP.
 	 *
@@ -30,6 +33,106 @@
 	function text(key, fallback) {
 		const strings = config().i18n || {};
 		return strings[key] || fallback;
+	}
+
+	/**
+	 * The shared progress window.
+	 *
+	 * @return {HTMLElement|null} Modal element.
+	 */
+	function modal() {
+		return document.querySelector('[data-bmx-modal]');
+	}
+
+	/**
+	 * Update the polite live region when the percent moves.
+	 *
+	 * @param {string} message Status text.
+	 * @param {number} percent Percent from 0 to 100.
+	 * @return {void}
+	 */
+	function announce(message, percent) {
+		const region = document.getElementById('bmx-live-region');
+		if (!region) {
+			return;
+		}
+		if (Math.abs(percent - announced) < 5 && region.textContent) {
+			return;
+		}
+		announced = percent;
+		region.textContent = message + ' ' + percent + '%';
+	}
+
+	/**
+	 * Show the percentage, bar, and status line.
+	 *
+	 * @param {Object} state Title, message, and percent.
+	 * @return {void}
+	 */
+	function showProgress(state) {
+		const box = modal();
+		if (!box) {
+			return;
+		}
+		const percent = Math.max(
+			0,
+			Math.min(100, Math.round(Number(state.percent) || 0))
+		);
+		const title = box.querySelector('[data-bmx-modal-title]');
+		const message = box.querySelector('[data-bmx-modal-message]');
+		const figure = box.querySelector('[data-bmx-percent]');
+		const bar = box.querySelector('[data-bmx-progress]');
+		const fill = box.querySelector('[data-bmx-progress-bar]');
+		if (title && state.title) {
+			title.textContent = state.title;
+		}
+		if (message) {
+			message.textContent = state.message || '';
+		}
+		if (figure) {
+			figure.textContent = percent + '%';
+		}
+		if (bar) {
+			bar.setAttribute('aria-valuenow', String(percent));
+		}
+		if (fill) {
+			fill.style.width = percent + '%';
+		}
+		box.hidden = false;
+		announce(state.message || state.title || '', percent);
+	}
+
+	/**
+	 * Show or hide the modal buttons.
+	 *
+	 * @param {Object} flags Which buttons stay visible.
+	 * @return {void}
+	 */
+	function showButtons(flags) {
+		const box = modal();
+		if (!box) {
+			return;
+		}
+		['stop', 'save', 'copy', 'close'].forEach(function (name) {
+			const button = box.querySelector('[data-bmx-' + name + ']');
+			if (button) {
+				button.hidden = !flags[name];
+				button.disabled = false;
+			}
+		});
+	}
+
+	/**
+	 * Hide the progress window.
+	 *
+	 * @return {void}
+	 */
+	function hideProgress() {
+		const box = modal();
+		if (box) {
+			box.hidden = true;
+		}
+		announced = -1;
 	}
 
 	/**
@@ -94,34 +197,160 @@
 	}
 
 	/**
-	 * Update the polite live region.
+	 * Save a file and update the percentage from bytes received.
 	 *
-	 * @param {string} message Status text.
-	 * @return {void}
+	 * @param {string} url  Download address.
+	 * @param {string} name File name.
+	 * @return {Promise<void>}
 	 */
-	function announce(message) {
-		const region = document.getElementById('bmx-live-region');
-		if (region) {
-			region.textContent = message;
-		}
-	}
+	function downloadFile(url, name) {
+		const controller = new window.AbortController();
+		onStop = function () {
+			controller.abort();
+		};
+		showButtons({ stop: true });
+		showProgress({
+			title: text('downloading', 'Downloading'),
+			message: text('downloading', 'Downloading'),
+			percent: 0,
+		});
 
-	/**
-	 * Set a progress bar element.
-	 *
-	 * @param {HTMLElement|null} bar   Track element.
-	 * @param {HTMLElement|null} fill  Fill element.
-	 * @param {number}           value Percent from 0 to 100.
-	 * @return {void}
-	 */
-	function setProgress(bar, fill, value) {
-		const percent = Math.max(0, Math.min(100, Number(value) || 0));
-		if (bar) {
-			bar.setAttribute('aria-valuenow', String(percent));
-		}
-		if (fill) {
-			fill.style.width = percent + '%';
-		}
+		let writable = null;
+		const openPicker = window.showSaveFilePicker
+			? window.showSaveFilePicker({
+					suggestedName: name,
+					types: [
+						{
+							description: 'BrightMigrate archive',
+							accept: {
+								'application/octet-stream': ['.bmx'],
+							},
+						},
+					],
+				})
+			: Promise.resolve(null);
+
+		return openPicker
+			.then(function (handle) {
+				if (!handle) {
+					return null;
+				}
+				return handle.createWritable();
+			})
+			.then(function (stream) {
+				writable = stream;
+				return window.fetch(url, {
+					credentials: 'same-origin',
+					signal: controller.signal,
+				});
+			})
+			.then(function (response) {
+				if (!response.ok || !response.body) {
+					throw new Error(
+						text('downloadFailed', 'The download could not finish.')
+					);
+				}
+				const total =
+					Number(response.headers.get('Content-Length')) || 0;
+				const reader = response.body.getReader();
+				const chunks = [];
+				let received = 0;
+
+				function read() {
+					return reader.read().then(function (result) {
+						if (result.done) {
+							return chunks;
+						}
+						received += result.value.length;
+						if (writable) {
+							return writable
+								.write(result.value)
+								.then(function () {
+									const percent = total
+										? Math.min(
+												99,
+												Math.round(
+													(received / total) * 100
+												)
+											)
+										: 0;
+									showProgress({
+										title: text(
+											'downloading',
+											'Downloading'
+										),
+										message: text(
+											'downloading',
+											'Downloading'
+										),
+										percent,
+									});
+									return read();
+								});
+						}
+						chunks.push(result.value);
+						showProgress({
+							title: text('downloading', 'Downloading'),
+							message: text('downloading', 'Downloading'),
+							percent: total
+								? Math.min(
+										99,
+										Math.round((received / total) * 100)
+									)
+								: 0,
+						});
+						return read();
+					});
+				}
+
+				return read().then(function () {
+					if (writable) {
+						return writable.close();
+					}
+					const blob = new window.Blob(chunks);
+					const objectUrl = window.URL.createObjectURL(blob);
+					const link = document.createElement('a');
+					link.href = objectUrl;
+					link.download = name;
+					document.body.appendChild(link);
+					link.click();
+					link.remove();
+					window.URL.revokeObjectURL(objectUrl);
+					return null;
+				});
+			})
+			.then(function () {
+				showButtons({ close: true });
+				showProgress({
+					title: text('downloadDone', 'Download complete'),
+					message: text('downloadDone', 'Download complete'),
+					percent: 100,
+				});
+			})
+			.catch(function (error) {
+				if (writable && writable.abort) {
+					writable.abort();
+				}
+				const cancelled =
+					error &&
+					(error.name === 'AbortError' ||
+						error.name === 'NotAllowedError');
+				let message = text(
+					'downloadFailed',
+					'The download could not finish.'
+				);
+				if (cancelled) {
+					message = text('cancelled', 'Cancelled.');
+				} else if (error && error.message) {
+					message = error.message;
+				}
+				showButtons({ close: true });
+				showProgress({
+					title: message,
+					message,
+					percent: 0,
+				});
+			});
 	}
 
 	/**
@@ -137,21 +366,13 @@
 		const pairs = root.querySelector('[data-bmx-pairs]');
 		const add = root.querySelector('[data-bmx-add-pair]');
 		const start = root.querySelector('[data-bmx-export-start]');
-		const modal = document.querySelector('[data-bmx-modal]');
-		const message = modal
-			? modal.querySelector('[data-bmx-modal-message]')
-			: null;
-		const bar = modal ? modal.querySelector('[data-bmx-progress]') : null;
-		const fill = modal
-			? modal.querySelector('[data-bmx-progress-bar]')
-			: null;
-		const stop = modal ? modal.querySelector('[data-bmx-stop]') : null;
-		const download = modal
-			? modal.querySelector('[data-bmx-download]')
-			: null;
-		const copy = modal ? modal.querySelector('[data-bmx-copy]') : null;
+		const box = modal();
+		const save = box ? box.querySelector('[data-bmx-save]') : null;
+		const copy = box ? box.querySelector('[data-bmx-copy]') : null;
 		let running = false;
 		let stopRequested = false;
+		let readyUrl = '';
+		let readyName = '';
 
 		if (add && pairs) {
 			add.addEventListener('click', function () {
@@ -186,8 +407,8 @@
 		function collectedExcludes() {
 			const keys = [];
 			root.querySelectorAll('[data-bmx-exclude]:checked').forEach(
-				function (box) {
-					keys.push(box.value);
+				function (boxItem) {
+					keys.push(boxItem.value);
 				}
 			);
 			return keys;
@@ -198,62 +419,43 @@
 			return field ? field.value : '';
 		}
 
-		function showModal(open) {
-			if (!modal) {
-				return;
-			}
-			if (open) {
-				modal.hidden = false;
-				if (stop) {
-					stop.hidden = false;
-					stop.focus();
-				}
-			} else {
-				modal.hidden = true;
-			}
-		}
-
 		function applyState(state) {
 			const line = state.message || text('working', 'Working…');
-			if (message) {
-				message.textContent = line;
-			}
-			announce(line);
-			setProgress(bar, fill, state.progress);
-			if ('done' === state.status && state.download && download) {
-				download.hidden = false;
-				download.href = state.download;
-				download.focus();
-				if (stop) {
-					stop.hidden = true;
-				}
-				if (copy) {
-					copy.hidden = false;
-				}
-			}
-		}
-
-		if (stop) {
-			stop.addEventListener('click', function () {
-				stopRequested = true;
-				stop.disabled = true;
+			const done = 'done' === state.status;
+			showProgress({
+				title: done
+					? text('exportDone', 'Export complete')
+					: text('exporting', 'Exporting'),
+				message: line,
+				percent: done ? 100 : state.progress,
 			});
+			if (done && state.download) {
+				readyUrl = state.download;
+				readyName = state.file || 'brightmigrate.bmx';
+				showButtons({ save: true, copy: true, close: true });
+			}
 		}
 
-		if (copy && download) {
+		if (copy) {
 			copy.addEventListener('click', function () {
-				const href = download.href;
 				const done = function () {
-					announce(text('copied', 'Download link copied.'));
+					announce(text('copied', 'Download link copied.'), 100);
 				};
 				if (
+					readyUrl &&
 					window.navigator.clipboard &&
 					window.navigator.clipboard.writeText
 				) {
-					window.navigator.clipboard.writeText(href).then(done);
-					return;
+					window.navigator.clipboard.writeText(readyUrl).then(done);
 				}
-				done();
+			});
+		}
+
+		if (save) {
+			save.addEventListener('click', function () {
+				if (readyUrl) {
+					downloadFile(readyUrl, readyName);
+				}
 			});
 		}
 
@@ -267,19 +469,21 @@
 			}
 			running = true;
 			stopRequested = false;
+			readyUrl = '';
 			start.disabled = true;
-			if (download) {
-				download.hidden = true;
-				download.removeAttribute('href');
-			}
-			if (copy) {
-				copy.hidden = true;
-			}
-			if (stop) {
-				stop.disabled = false;
-			}
-			setProgress(bar, fill, 1);
-			showModal(true);
+			showButtons({ stop: true });
+			showProgress({
+				title: text('exporting', 'Exporting'),
+				message: text('working', 'Working…'),
+				percent: 1,
+			});
+			onStop = function () {
+				stopRequested = true;
+				const stop = box ? box.querySelector('[data-bmx-stop]') : null;
+				if (stop) {
+					stop.disabled = true;
+				}
+			};
 
 			const fields = {
 				excludes: collectedExcludes(),
@@ -298,14 +502,12 @@
 								step: 'cancel',
 								id: started.id,
 							}).then(function () {
-								const line = text('stopped', 'Export stopped.');
-								if (message) {
-									message.textContent = line;
-								}
-								announce(line);
-								if (stop) {
-									stop.hidden = true;
-								}
+								showButtons({ close: true });
+								showProgress({
+									title: text('stopped', 'Export stopped.'),
+									message: text('stopped', 'Export stopped.'),
+									percent: 0,
+								});
 							});
 						}
 						if (!state || 'running' !== state.status) {
@@ -322,7 +524,10 @@
 								return next();
 							}
 							if (stopRequested && 'done' !== state.status) {
-								return post({ step: 'cancel', id: started.id });
+								return post({
+									step: 'cancel',
+									id: started.id,
+								});
 							}
 							return Promise.resolve();
 						});
@@ -335,11 +540,12 @@
 						error && error.message
 							? error.message
 							: text('failed', 'The export could not continue.');
-					if (message) {
-						message.textContent = line;
-					}
-					announce(line);
-					showModal(true);
+					showButtons({ close: true });
+					showProgress({
+						title: text('failed', 'The export could not continue.'),
+						message: line,
+						percent: 0,
+					});
 				})
 				.then(function () {
 					running = false;
@@ -359,10 +565,9 @@
 			return;
 		}
 		const input = drop.querySelector('[data-bmx-file]');
-		const bar = drop.querySelector('[data-bmx-upload-progress]');
-		const fill = drop.querySelector('[data-bmx-upload-bar]');
-		const message = drop.querySelector('[data-bmx-upload-message]');
+		const pick = drop.querySelector('[data-bmx-pick]');
 		const summary = document.querySelector('[data-bmx-summary]');
+		let stopRequested = false;
 
 		function passwordValue() {
 			const field = drop.querySelector('[data-bmx-upload-password]');
@@ -399,19 +604,38 @@
 			const total = Math.max(1, Math.ceil(file.size / slice));
 			let uploadId = '';
 			let index = 0;
-			if (message) {
-				message.textContent = text('working', 'Working…');
-			}
-			if (bar) {
-				bar.hidden = false;
-			}
+			stopRequested = false;
+			showButtons({ stop: true });
+			showProgress({
+				title: text('importing', 'Importing'),
+				message: text('importing', 'Importing'),
+				percent: 0,
+			});
+			onStop = function () {
+				stopRequested = true;
+			};
 
 			function step() {
+				if (stopRequested) {
+					showButtons({ close: true });
+					showProgress({
+						title: text('cancelled', 'Cancelled.'),
+						message: text('cancelled', 'Cancelled.'),
+						percent: 0,
+					});
+					return Promise.resolve();
+				}
 				const startAt = index * slice;
 				const blob = file.slice(
 					startAt,
 					Math.min(file.size, startAt + slice)
 				);
+				const percent = Math.min(99, Math.round((index / total) * 100));
+				showProgress({
+					title: text('importing', 'Importing'),
+					message: text('importing', 'Importing'),
+					percent,
+				});
 				return post({
 					step: 'upload',
 					id: uploadId,
@@ -421,12 +645,16 @@
 					chunk: blob,
 				}).then(function (data) {
 					uploadId = data.upload_id || uploadId;
-					setProgress(bar, fill, data.progress);
-					if (message && data.message) {
-						message.textContent = data.message;
-						announce(data.message);
-					}
+					showProgress({
+						title:
+							'ready' === data.status
+								? text('importDone', 'Import complete')
+								: text('importing', 'Importing'),
+						message: data.message || text('importing', 'Importing'),
+						percent: 'ready' === data.status ? 100 : data.progress,
+					});
 					if ('ready' === data.status) {
+						showButtons({ close: true });
 						showSummary(data);
 						return data;
 					}
@@ -446,10 +674,21 @@
 								'uploadFailed',
 								'The upload could not continue.'
 							);
-				if (message) {
-					message.textContent = line;
-				}
-				announce(line);
+				showButtons({ close: true });
+				showProgress({
+					title: text(
+						'uploadFailed',
+						'The upload could not continue.'
+					),
+					message: line,
+					percent: 0,
+				});
+			});
+		}
+
+		if (pick && input) {
+			pick.addEventListener('click', function () {
+				input.click();
 			});
 		}
 
@@ -481,12 +720,45 @@
 		});
 	}
 
+	/**
+	 * Download buttons on the Backups screen.
+	 *
+	 * @return {void}
+	 */
+	function bindDownloads() {
+		document
+			.querySelectorAll('.bmx-file-download')
+			.forEach(function (button) {
+				button.addEventListener('click', function () {
+					const url = button.getAttribute('data-bmx-file-url');
+					const name =
+						button.getAttribute('data-bmx-file-name') ||
+						'brightmigrate.bmx';
+					if (url) {
+						downloadFile(url, name);
+					}
+				});
+			});
+	}
+
 	document.addEventListener('DOMContentLoaded', function () {
 		const region = document.getElementById('bmx-live-region');
+		const box = modal();
+		const stop = box ? box.querySelector('[data-bmx-stop]') : null;
+		const close = box ? box.querySelector('[data-bmx-close]') : null;
 		if (region) {
 			region.setAttribute('data-bmx-ready', 'true');
 		}
+		if (stop) {
+			stop.addEventListener('click', function () {
+				onStop();
+			});
+		}
+		if (close) {
+			close.addEventListener('click', hideProgress);
+		}
 		bindExport();
 		bindImport();
+		bindDownloads();
 	});
 })();

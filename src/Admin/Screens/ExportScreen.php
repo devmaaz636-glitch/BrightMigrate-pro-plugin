@@ -88,17 +88,19 @@ class ExportScreen extends Screen {
 	 * @return void
 	 */
 	private function render_full() {
-		echo '<p>' . esc_html__( 'Export this site to one .bmx file. There is no size limit in the plugin. The work runs in short steps so a large site can finish.', 'brightmigrate-pro' ) . '</p>';
-		echo '<div class="bmx-card" data-bmx-export>';
-		echo '<h3>' . esc_html__( 'Find & Replace', 'brightmigrate-pro' ) . '</h3>';
-		echo '<p class="description">' . esc_html__( 'Optional. Applied to database values while the archive is built. Serialized values keep a valid length.', 'brightmigrate-pro' ) . '</p>';
+		echo '<p class="bmx-lead">' . esc_html__( 'Export this site to one .bmx file. There is no size limit. A large site finishes in short steps, and the percentage stays on screen.', 'brightmigrate-pro' ) . '</p>';
+		echo '<div class="bmx-panel" data-bmx-export>';
+		echo '<div class="bmx-find">';
 		echo '<div data-bmx-pairs>';
 		echo '<div class="bmx-replace-row">';
-		echo '<label>' . esc_html__( 'Find', 'brightmigrate-pro' ) . '<input type="text" data-bmx-from autocomplete="off" /></label>';
-		echo '<label>' . esc_html__( 'Replace with', 'brightmigrate-pro' ) . '<input type="text" data-bmx-to autocomplete="off" /></label>';
+		echo '<label><span class="screen-reader-text">' . esc_html__( 'Find', 'brightmigrate-pro' ) . '</span>';
+		echo '<input type="text" data-bmx-from autocomplete="off" placeholder="' . esc_attr__( 'Find', 'brightmigrate-pro' ) . '" /></label>';
+		echo '<label><span class="screen-reader-text">' . esc_html__( 'Replace with', 'brightmigrate-pro' ) . '</span>';
+		echo '<input type="text" data-bmx-to autocomplete="off" placeholder="' . esc_attr__( 'Replace with', 'brightmigrate-pro' ) . '" /></label>';
 		echo '</div>';
 		echo '</div>';
-		echo '<p><button type="button" class="button" data-bmx-add-pair>' . esc_html__( 'Add', 'brightmigrate-pro' ) . '</button></p>';
+		echo '<button type="button" class="bmx-plus" data-bmx-add-pair aria-label="' . esc_attr__( 'Add', 'brightmigrate-pro' ) . '">+</button>';
+		echo '</div>';
 
 		echo '<details class="bmx-advanced">';
 		echo '<summary>' . esc_html__( 'Advanced options', 'brightmigrate-pro' ) . '</summary>';
@@ -119,23 +121,12 @@ class ExportScreen extends Screen {
 		echo '<p class="description">' . esc_html__( 'Optional. Encrypts the database inside the archive. The password is sent with each step and is not saved.', 'brightmigrate-pro' ) . '</p>';
 		echo '</details>';
 
-		echo '<p class="bmx-export-action">';
-		echo '<button type="button" class="bmx-export-button" data-bmx-export-start>';
-		echo '<span class="bmx-export-button-label">' . esc_html__( 'Export to', 'brightmigrate-pro' ) . '</span>';
-		echo '<span class="bmx-export-button-target">' . esc_html__( 'File', 'brightmigrate-pro' ) . '</span>';
-		echo '</button></p>';
+		echo '<div class="bmx-launch">';
+		echo '<button type="button" class="bmx-split" data-bmx-export-start>';
+		echo '<span class="bmx-split-label">' . esc_html__( 'Export to', 'brightmigrate-pro' ) . '</span>';
+		echo '<span class="bmx-split-target">' . esc_html__( 'File', 'brightmigrate-pro' ) . '</span>';
+		echo '</button></div>';
 		echo '</div>';
-
-		echo '<div class="bmx-modal" hidden data-bmx-modal role="dialog" aria-modal="true" aria-labelledby="bmx-modal-title">';
-		echo '<div class="bmx-modal-card">';
-		echo '<h2 id="bmx-modal-title">' . esc_html__( 'Exporting', 'brightmigrate-pro' ) . '</h2>';
-		echo '<p data-bmx-modal-message>' . esc_html__( 'Listing files…', 'brightmigrate-pro' ) . '</p>';
-		echo '<div class="bmx-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-bmx-progress><span data-bmx-progress-bar></span></div>';
-		echo '<p class="bmx-actions">';
-		echo '<button type="button" class="button" data-bmx-stop>' . esc_html__( 'Stop', 'brightmigrate-pro' ) . '</button>';
-		echo '<a class="button button-primary" data-bmx-download hidden href="#">' . esc_html__( 'Download', 'brightmigrate-pro' ) . '</a>';
-		echo '<button type="button" class="button" data-bmx-copy hidden>' . esc_html__( 'Copy link', 'brightmigrate-pro' ) . '</button>';
-		echo '</p></div></div>';
 	}
 
 	/**

@@ -39,14 +39,16 @@ class ImportScreen extends Screen {
 	 * @return void
 	 */
 	protected function render_body() {
-		echo '<p>' . esc_html__( 'Drop a .bmx archive here. It is uploaded in parts, then its summary is shown. Replacing this site is a later step.', 'brightmigrate-pro' ) . '</p>';
-		echo '<div class="bmx-drop" data-bmx-drop>';
-		echo '<p id="bmx-drop-label">' . esc_html__( 'Drop a .bmx file here, or choose a file.', 'brightmigrate-pro' ) . '</p>';
-		echo '<p><input type="file" accept=".bmx,application/octet-stream" data-bmx-file aria-labelledby="bmx-drop-label" /></p>';
-		echo '<p><label>' . esc_html__( 'Password, if the archive is encrypted', 'brightmigrate-pro' );
+		echo '<div class="bmx-panel bmx-drop" data-bmx-drop>';
+		echo '<p class="bmx-drop-title" id="bmx-drop-label">' . esc_html__( 'Drag and drop a .bmx file to import it', 'brightmigrate-pro' ) . '</p>';
+		echo '<div class="bmx-launch">';
+		echo '<button type="button" class="bmx-split" data-bmx-pick>';
+		echo '<span class="bmx-split-label">' . esc_html__( 'Import from', 'brightmigrate-pro' ) . '</span>';
+		echo '<span class="bmx-split-target">' . esc_html__( 'File', 'brightmigrate-pro' ) . '</span>';
+		echo '</button></div>';
+		echo '<input class="screen-reader-text" type="file" accept=".bmx,application/octet-stream" data-bmx-file aria-labelledby="bmx-drop-label" />';
+		echo '<p class="bmx-password"><label>' . esc_html__( 'Password, if the archive is encrypted', 'brightmigrate-pro' );
 		echo '<input type="password" data-bmx-upload-password autocomplete="current-password" /></label></p>';
-		echo '<div class="bmx-progress" hidden data-bmx-upload-progress role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-bmx-upload-bar></span></div>';
-		echo '<p data-bmx-upload-message></p>';
 		echo '</div>';
 
 		echo '<section class="bmx-summary" hidden data-bmx-summary aria-labelledby="bmx-summary-heading">';

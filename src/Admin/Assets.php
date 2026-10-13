@@ -77,14 +77,14 @@ class Assets {
 			self::HANDLE,
 			BMX_PLUGIN_URL . 'assets/css/admin.css',
 			array(),
-			BMX_VERSION
+			self::asset_version( 'assets/css/admin.css' )
 		);
 
 		wp_enqueue_script(
 			self::HANDLE,
 			BMX_PLUGIN_URL . 'assets/js/admin.js',
 			array( 'wp-i18n' ),
-			BMX_VERSION,
+			self::asset_version( 'assets/js/admin.js' ),
 			true
 		);
 
@@ -94,11 +94,19 @@ class Assets {
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 			'nonce'   => wp_create_nonce( 'brightmigrate_export' ),
 			'i18n'    => array(
-				'failed'       => __( 'The export could not continue.', 'brightmigrate-pro' ),
-				'stopped'      => __( 'Export stopped.', 'brightmigrate-pro' ),
-				'uploadFailed' => __( 'The upload could not continue.', 'brightmigrate-pro' ),
-				'working'      => __( 'Working…', 'brightmigrate-pro' ),
-				'copied'       => __( 'Download link copied.', 'brightmigrate-pro' ),
+				'failed'         => __( 'The export could not continue.', 'brightmigrate-pro' ),
+				'stopped'        => __( 'Export stopped.', 'brightmigrate-pro' ),
+				'uploadFailed'   => __( 'The upload could not continue.', 'brightmigrate-pro' ),
+				'working'        => __( 'Working…', 'brightmigrate-pro' ),
+				'copied'         => __( 'Download link copied.', 'brightmigrate-pro' ),
+				'exporting'      => __( 'Exporting', 'brightmigrate-pro' ),
+				'exportDone'     => __( 'Export complete', 'brightmigrate-pro' ),
+				'importing'      => __( 'Importing', 'brightmigrate-pro' ),
+				'importDone'     => __( 'Import complete', 'brightmigrate-pro' ),
+				'downloading'    => __( 'Downloading', 'brightmigrate-pro' ),
+				'downloadDone'   => __( 'Download complete', 'brightmigrate-pro' ),
+				'downloadFailed' => __( 'The download could not finish.', 'brightmigrate-pro' ),
+				'cancelled'      => __( 'Cancelled.', 'brightmigrate-pro' ),
 			),
 		);
 		wp_add_inline_script(
@@ -106,5 +114,22 @@ class Assets {
 			'window.brightmigrateAdmin = ' . wp_json_encode( $config ) . ';',
 			'before'
 		);
+	}
+
+	/**
+	 * Cache-bust a plugin asset when the file changes.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $relative Path under the plugin directory.
+	 * @return string
+	 */
+	private static function asset_version( $relative ) {
+		$path = BMX_PLUGIN_DIR . ltrim( $relative, '/' );
+		$time = is_readable( $path ) ? filemtime( $path ) : false;
+		if ( false === $time ) {
+			return BMX_VERSION;
+		}
+		return BMX_VERSION . '.' . (string) $time;
 	}
 }
