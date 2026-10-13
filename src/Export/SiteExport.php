@@ -11,8 +11,11 @@ use BrightIdeas\Migrate\Archive\ArchiveException;
 use BrightIdeas\Migrate\Archive\Format;
 use BrightIdeas\Migrate\Archive\Reader;
 use BrightIdeas\Migrate\Archive\Stream;
-use BrightIdeas\Migrate\Archive\Writer;
+use BrightIdeas\Migrate\Archive\Wpress;
 use BrightIdeas\Migrate\Core\Format as SizeFormat;
+use BrightIdeas\Migrate\Core\Limits;
+use BrightIdeas\Migrate\Core\Options;
+use BrightIdeas\Migrate\Core\Requirements;
 use BrightIdeas\Migrate\Core\Storage;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -20,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Builds a .bmx of this site's database and wp-content across short requests.
+ * Builds a .wpress of this site's database and wp-content across short requests.
  *
  * There is no size cap. Each request stops after about eight seconds.
  *
@@ -46,6 +49,22 @@ class SiteExport {
 		'spam',
 		'revisions',
 		'database',
+	);
+
+	/**
+	 * Migration scopes the export screen can start.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @var string[]
+	 */
+	const SCOPES = array(
+		'full',
+		'database',
+		'files',
+		'media',
+		'theme',
+		'plugins',
 	);
 
 	/**
@@ -82,13 +101,18 @@ class SiteExport {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array $excludes Allow-listed exclude keys.
-	 * @param array $pairs    Find/replace pairs.
+	 * @param array  $excludes Allow-listed exclude keys.
+	 * @param array  $pairs    Find/replace pairs.
+	 * @param string $scope    Migration scope.
 	 * @return string
 	 * @throws ArchiveException When this step cannot finish safely.
 	 */
-	public static function start( array $excludes, array $pairs ) {
+	public static function start( array $excludes, array $pairs, $scope = 'full' ) {
 		self::ready();
+		if ( ! in_array( $scope, self::SCOPES, true ) ) {
+			$scope = 'full';
+		}
+		$excludes = self::scope_excludes( $scope, $excludes );
 		try {
 			$id = bin2hex( random_bytes( 8 ) );
 		} catch ( \Exception $exception ) {
@@ -96,38 +120,46 @@ class SiteExport {
 			throw new ArchiveException( 'Could not start the export.' );
 		}
 
-		$dir   = self::job_dir( $id, true );
-		$now   = gmdate( 'Ymd-His' );
-		$state = array(
-			'id'            => $id,
-			'status'        => 'running',
-			'stage'         => 'scan',
-			'excludes'      => array_values( $excludes ),
-			'pairs'         => self::pairs( $pairs ),
-			'root'          => WP_CONTENT_DIR,
-			'stack'         => array( WP_CONTENT_DIR ),
-			'current_dir'   => '',
-			'skip'          => 0,
-			'files_total'   => 0,
-			'files_done'    => 0,
-			'list_offset'   => 0,
-			'tables'        => array(),
-			'table_index'   => 0,
-			'pk'            => '',
-			'pk_value'      => '',
-			'offset'        => 0,
-			'table_started' => false,
-			'writer_work'   => '',
-			'sql_packed'    => false,
-			'destination'   => Storage::active_path() . '/brightmigrate-full-' . $now . '-' . $id . '.bmx',
-			'sql'           => $dir . '/database.sql',
-			'list'          => $dir . '/files.txt',
-			'bytes_done'    => 0,
-			'file_name'     => '',
-			'context'       => self::context(),
-			'started_at'    => microtime( true ),
-			'message'       => __( 'Listing files…', 'brightmigrate-pro' ),
-			'progress'      => 1,
+		$dir             = self::job_dir( $id, true );
+		$now             = gmdate( 'Ymd-His' );
+		$context         = self::context();
+		$context['only'] = self::scope_prefix( $scope );
+		$state           = array(
+			'id'              => $id,
+			'status'          => 'running',
+			'stage'           => ( 'database' === $scope ) ? 'database' : 'scan',
+			'scope'           => $scope,
+			'excludes'        => array_values( $excludes ),
+			'pairs'           => self::pairs( $pairs ),
+			'root'            => WP_CONTENT_DIR,
+			'stack'           => ( 'database' === $scope ) ? array() : array( WP_CONTENT_DIR ),
+			'current_dir'     => '',
+			'skip'            => 0,
+			'files_total'     => 0,
+			'files_done'      => 0,
+			'list_offset'     => 0,
+			'tables'          => array(),
+			'table_index'     => 0,
+			'pk'              => '',
+			'pk_value'        => '',
+			'offset'          => 0,
+			'table_started'   => false,
+			'writer_work'     => '',
+			'sql_packed'      => false,
+			'package_written' => false,
+			'packing'         => '',
+			'body_written'    => 0,
+			'header_done'     => false,
+			'body_size'       => 0,
+			'destination'     => Storage::active_path() . '/brightmigrate-' . $scope . '-' . $now . '-' . $id . '.wpress',
+			'sql'             => $dir . '/database.sql',
+			'list'            => $dir . '/files.txt',
+			'bytes_done'      => 0,
+			'file_name'       => '',
+			'context'         => $context,
+			'started_at'      => microtime( true ),
+			'message'         => __( 'Listing files…', 'brightmigrate-pro' ),
+			'progress'        => 1,
 		);
 		self::write_state( $dir, $state );
 		return $id;
@@ -169,8 +201,11 @@ class SiteExport {
 		}
 
 		if ( 'done' === $state['status'] || 'error' === $state['status'] ) {
-			if ( 'error' === $state['status'] && is_string( $state['writer_work'] ) ) {
-				self::remove_tree( $state['writer_work'] );
+			if ( 'error' === $state['status'] ) {
+				self::discard_partial( $state );
+				if ( is_string( $state['writer_work'] ) && '' !== $state['writer_work'] ) {
+					self::remove_tree( $state['writer_work'] );
+				}
 			}
 			self::remove_tree( $dir );
 		}
@@ -191,6 +226,7 @@ class SiteExport {
 			return;
 		}
 		$state = self::read_state( $dir );
+		self::discard_partial( $state );
 		if ( '' !== $state['writer_work'] ) {
 			self::remove_tree( $state['writer_work'] );
 		}
@@ -216,7 +252,7 @@ class SiteExport {
 		}
 		$name = readdir( $handle );
 		while ( false !== $name ) {
-			if ( 1 === preg_match( '/^[A-Za-z0-9._-]+\.bmx$/', $name ) ) {
+			if ( self::valid_name( $name ) ) {
 				$path = $dir . '/' . $name;
 				if ( is_file( $path ) && ! is_link( $path ) ) {
 					$size   = filesize( $path );
@@ -363,17 +399,29 @@ class SiteExport {
 			);
 		}
 
-		$name = 'brightmigrate-import-' . gmdate( 'Ymd-His' ) . '-' . $id . '.bmx';
-		$dest = Storage::active_path() . '/' . $name;
+		$stamp = gmdate( 'Ymd-His' );
+		$name  = 'brightmigrate-import-' . $stamp . '-' . $id . '.bmx';
+		$dest  = Storage::active_path() . '/' . $name;
 		if ( ! rename( $part, $dest ) ) {
 			throw new ArchiveException( 'Could not store the upload.' );
 		}
 		self::remove_tree( $dir );
-		$reader = new Reader( $dest, $password );
 		try {
-			$summary = $reader->summary();
-		} finally {
-			$reader->close();
+			$summary = self::describe_stored( $dest, $password );
+		} catch ( ArchiveException $exception ) {
+			if ( is_file( $dest ) ) {
+				unlink( $dest );
+			}
+			throw $exception;
+		}
+		if ( isset( $summary['format'] ) && 'wpress' === $summary['format'] ) {
+			$renamed = 'brightmigrate-import-' . $stamp . '-' . $id . '.wpress';
+			$moved   = Storage::active_path() . '/' . $renamed;
+			if ( ! rename( $dest, $moved ) ) {
+				unlink( $dest );
+				throw new ArchiveException( 'Could not store the upload.' );
+			}
+			$name = $renamed;
 		}
 
 		return array(
@@ -561,73 +609,228 @@ class SiteExport {
 	 * @throws ArchiveException When this step cannot finish safely.
 	 */
 	private static function pack( array &$state, $deadline, $password ) {
-		global $wpdb, $wp_version;
-		if ( '' === $state['writer_work'] ) {
-			$writer = new Writer(
-				$state['destination'],
-				array(
-					'type'           => 'full',
-					'password'       => $password,
-					'source_url'     => (string) get_option( 'siteurl', '' ),
-					'home_url'       => (string) get_option( 'home', '' ),
-					'wp_version'     => is_string( $wp_version ) ? $wp_version : '',
-					'php_version'    => PHP_VERSION,
-					'table_prefix'   => $wpdb->prefix,
-					'plugin_version' => defined( 'BMX_VERSION' ) ? BMX_VERSION : '1.0.0',
-				)
-			);
-		} else {
-			$writer = Writer::resume( $state['writer_work'], $password );
+		unset( $password );
+		if ( ! isset( $state['packing'] ) ) {
+			$state['packing'] = '';
+		}
+		$partial = $state['destination'] . '.partial';
+		if ( empty( $state['package_written'] ) ) {
+			Wpress::append_bytes( $partial, 'package.json', self::package_json(), time() );
+			$state['package_written'] = true;
+		}
+		if ( empty( $state['sql_packed'] ) && is_file( $state['sql'] ) && ! in_array( 'database', $state['excludes'], true ) ) {
+			if ( ! self::copy_into( $state, $deadline, $partial, $state['sql'], 'database.sql' ) ) {
+				return;
+			}
+			$size = filesize( $state['sql'] );
+			if ( false !== $size ) {
+				$state['bytes_done'] = (float) $state['bytes_done'] + (float) $size;
+			}
+			$state['sql_packed'] = true;
+			self::reset_copy( $state );
+		}
+		if ( microtime( true ) >= $deadline ) {
+			return;
 		}
 
+		$list = Stream::open( $state['list'], 'rb' );
 		try {
-			if ( ! $state['sql_packed'] && is_file( $state['sql'] ) && ! in_array( 'database', $state['excludes'], true ) ) {
-				$writer->add_database_file( $state['sql'], 'database/site.sql' );
-				$state['sql_packed'] = true;
+			if ( 0 !== fseek( $list, (int) $state['list_offset'], SEEK_SET ) ) {
+				throw new ArchiveException( 'Could not read the file list.' );
 			}
-			$list = Stream::open( $state['list'], 'rb' );
-			try {
-				if ( 0 !== fseek( $list, (int) $state['list_offset'], SEEK_SET ) ) {
-					throw new ArchiveException( 'Could not read the file list.' );
-				}
-				while ( microtime( true ) < $deadline ) {
-					$line = fgets( $list, 8192 );
-					if ( false === $line ) {
-						$paths                = $writer->finish();
-						$state['writer_work'] = '';
-						$state['status']      = 'done';
-						$state['stage']       = 'done';
-						$state['file_name']   = basename( (string) $paths[0] );
-						$state['list_offset'] = (int) ftell( $list );
-						return;
-					}
-					if ( "\n" !== substr( $line, -1 ) ) {
-						throw new ArchiveException( 'A file path in the export is too long.' );
-					}
-					$relative = rtrim( $line, "\r\n" );
-					if ( 0 !== strpos( $relative, 'wp-content/' ) ) {
-						$state['list_offset'] = (int) ftell( $list );
-						++$state['files_done'];
-						continue;
-					}
-					$source               = rtrim( (string) $state['root'], '/\\' ) . '/' . substr( $relative, strlen( 'wp-content/' ) );
+			if ( '' !== $state['packing'] && ! self::copy_listed( $state, $deadline, $partial, $state['packing'] ) ) {
+				return;
+			}
+			while ( microtime( true ) < $deadline ) {
+				$line = fgets( $list, 8192 );
+				if ( false === $line ) {
+					Wpress::finish( $partial, $state['destination'] );
+					$state['status']      = 'done';
+					$state['stage']       = 'done';
+					$state['file_name']   = basename( (string) $state['destination'] );
 					$state['list_offset'] = (int) ftell( $list );
-					if ( is_file( $source ) && ! is_link( $source ) ) {
-						$writer->add_file( $source, $relative );
-						$size = filesize( $source );
-						if ( false !== $size ) {
-							$state['bytes_done'] = (float) $state['bytes_done'] + (float) $size;
-						}
-					}
-					++$state['files_done'];
+					self::apply_retention( (string) $state['file_name'] );
+					return;
 				}
-			} finally {
-				fclose( $list );
+				if ( "\n" !== substr( $line, -1 ) ) {
+					throw new ArchiveException( 'A file path in the export is too long.' );
+				}
+				$relative             = rtrim( $line, "\r\n" );
+				$state['list_offset'] = (int) ftell( $list );
+				if ( 0 !== strpos( $relative, 'wp-content/' ) ) {
+					++$state['files_done'];
+					continue;
+				}
+				$state['packing'] = $relative;
+				if ( ! self::copy_listed( $state, $deadline, $partial, $relative ) ) {
+					return;
+				}
 			}
-			$state['writer_work'] = $writer->suspend();
-		} catch ( ArchiveException $exception ) {
-			unset( $writer );
-			throw $exception;
+		} finally {
+			fclose( $list );
+		}
+	}
+
+	/**
+	 * The package.json file stored at the start of a .wpress archive.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	private static function package_json() {
+		global $wpdb, $wp_version;
+		$site    = (string) get_option( 'siteurl', '' );
+		$home    = (string) get_option( 'home', '' );
+		$encoded = wp_json_encode(
+			array(
+				'SiteURL'         => $site,
+				'HomeURL'         => $home,
+				'InternalSiteURL' => $site,
+				'InternalHomeURL' => $home,
+				'Plugin'          => array(
+					'Version' => defined( 'BMX_VERSION' ) ? BMX_VERSION : '1.0.0',
+				),
+				'WordPress'       => array(
+					'Version' => is_string( $wp_version ) ? $wp_version : '',
+					'Content' => 'wp-content',
+					'Plugins' => 'wp-content/plugins',
+					'Themes'  => 'wp-content/themes',
+					'Uploads' => 'wp-content/uploads',
+				),
+				'Database'        => array(
+					'Version' => is_object( $wpdb ) ? (string) $wpdb->db_version() : '',
+					'Charset' => is_object( $wpdb ) ? (string) $wpdb->charset : '',
+					'Collate' => is_object( $wpdb ) ? (string) $wpdb->collate : '',
+					'Prefix'  => is_object( $wpdb ) ? (string) $wpdb->prefix : '',
+				),
+				'PHP'             => array(
+					'Version' => PHP_VERSION,
+				),
+			)
+		);
+		if ( ! is_string( $encoded ) ) {
+			throw new ArchiveException( 'Could not write the archive.' );
+		}
+		return $encoded;
+	}
+
+	/**
+	 * Copy one local file until it is finished or time runs out.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param array  $state        Job state.
+	 * @param float  $deadline     Microtime deadline.
+	 * @param string $partial      Partial archive path.
+	 * @param string $source       Local file.
+	 * @param string $archive_path Path inside the archive.
+	 * @return bool Whether the file is complete.
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	private static function copy_into( array &$state, $deadline, $partial, $source, $archive_path ) {
+		$result                = Wpress::append_file(
+			$partial,
+			$source,
+			$archive_path,
+			isset( $state['body_written'] ) ? (int) $state['body_written'] : 0,
+			! empty( $state['header_done'] ),
+			isset( $state['body_size'] ) ? (int) $state['body_size'] : 0,
+			$deadline
+		);
+		$state['body_written'] = (int) $result['body_written'];
+		$state['header_done']  = ! empty( $result['header_done'] );
+		$state['body_size']    = (int) $result['body_size'];
+		return ! empty( $result['done'] );
+	}
+
+	/**
+	 * Copy one listed wp-content file and count it when it finishes.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param array  $state    Job state.
+	 * @param float  $deadline Microtime deadline.
+	 * @param string $partial  Partial archive path.
+	 * @param string $relative Archive path starting with wp-content/.
+	 * @return bool Whether this file is complete.
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	private static function copy_listed( array &$state, $deadline, $partial, $relative ) {
+		$source = rtrim( (string) $state['root'], '/\\' ) . '/' . substr( $relative, strlen( 'wp-content/' ) );
+		if ( ! is_file( $source ) || is_link( $source ) ) {
+			self::reset_copy( $state );
+			++$state['files_done'];
+			return true;
+		}
+		if ( ! self::copy_into( $state, $deadline, $partial, $source, $relative ) ) {
+			return false;
+		}
+		$size = filesize( $source );
+		if ( false !== $size ) {
+			$state['bytes_done'] = (float) $state['bytes_done'] + (float) $size;
+		}
+		self::reset_copy( $state );
+		++$state['files_done'];
+		return true;
+	}
+
+	/**
+	 * Clear the in-progress file markers.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param array $state Job state.
+	 * @return void
+	 */
+	private static function reset_copy( array &$state ) {
+		$state['packing']      = '';
+		$state['body_written'] = 0;
+		$state['header_done']  = false;
+		$state['body_size']    = 0;
+	}
+
+	/**
+	 * Summary for a stored .wpress or .bmx file.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $path     Archive path.
+	 * @param string $password Password for an encrypted .bmx file.
+	 * @return array
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	private static function describe_stored( $path, $password ) {
+		$handle = Stream::open( $path, 'rb' );
+		$magic  = fread( $handle, 8 );
+		fclose( $handle );
+		if ( is_string( $magic ) && Format::MAGIC === $magic ) {
+			$reader = new Reader( $path, $password );
+			try {
+				return $reader->summary();
+			} finally {
+				$reader->close();
+			}
+		}
+		return Wpress::summary( $path );
+	}
+
+	/**
+	 * Delete an unfinished .wpress file.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param array $state Job state.
+	 * @return void
+	 */
+	private static function discard_partial( array $state ) {
+		if ( empty( $state['destination'] ) || ! is_string( $state['destination'] ) ) {
+			return;
+		}
+		$partial = $state['destination'] . '.partial';
+		if ( is_file( $partial ) && ! is_link( $partial ) ) {
+			unlink( $partial );
 		}
 	}
 
@@ -857,6 +1060,123 @@ class SiteExport {
 	}
 
 	/**
+	 * Server check before a large export. There is no archive size cap.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array
+	 */
+	public static function preflight() {
+		$settings = get_option( Options::SETTINGS, array() );
+		$setting  = ( is_array( $settings ) && isset( $settings['upload_chunk_mb'] ) ) ? (int) $settings['upload_chunk_mb'] : 0;
+		$chunk    = Limits::chunk_bytes( $setting, (string) ini_get( 'post_max_size' ), (string) ini_get( 'upload_max_filesize' ) );
+		$free     = disk_free_space( Storage::active_path() );
+		$failures = Requirements::current_failures();
+		$parts    = array(
+			__( 'There is no size limit. A large site finishes in short steps.', 'brightmigrate-pro' ),
+			sprintf(
+				/* translators: %s: size of one upload step. */
+				__( 'Each upload step is %s.', 'brightmigrate-pro' ),
+				SizeFormat::bytes( $chunk )
+			),
+		);
+		if ( is_numeric( $free ) && (float) $free > 0 ) {
+			$parts[] = sprintf(
+				/* translators: %s: free disk space. */
+				__( 'Free disk space: %s.', 'brightmigrate-pro' ),
+				SizeFormat::bytes( $free )
+			);
+		}
+		if ( Requirements::is_32_bit( PHP_INT_SIZE ) ) {
+			$parts[] = __( 'This PHP build cannot handle one file larger than 2 GB. There is no smaller size limit.', 'brightmigrate-pro' );
+		}
+		foreach ( $failures as $code ) {
+			$parts[] = Requirements::message( $code );
+		}
+		return array(
+			'status'      => array() === $failures ? 'ready' : 'blocked',
+			'chunk_bytes' => $chunk,
+			'message'     => implode( ' ', $parts ),
+			'progress'    => 1,
+		);
+	}
+
+	/**
+	 * Exclude keys implied by a migration scope.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $scope    Migration scope.
+	 * @param array  $excludes Exclude keys already chosen.
+	 * @return string[]
+	 */
+	private static function scope_excludes( $scope, array $excludes ) {
+		$extra = array();
+		if ( 'database' === $scope ) {
+			$extra = array( 'media', 'themes', 'plugins', 'mu_plugins' );
+		} elseif ( 'files' === $scope ) {
+			$extra = array( 'database' );
+		} elseif ( 'media' === $scope ) {
+			$extra = array( 'database', 'themes', 'plugins', 'mu_plugins' );
+		} elseif ( 'theme' === $scope ) {
+			$extra = array( 'database', 'media', 'plugins', 'mu_plugins', 'inactive_themes' );
+		} elseif ( 'plugins' === $scope ) {
+			$extra = array( 'database', 'media', 'themes', 'mu_plugins' );
+		}
+		return array_values( array_unique( array_merge( $excludes, $extra ) ) );
+	}
+
+	/**
+	 * Archive path prefix for a scope, or empty when every wp-content path is allowed.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $scope Migration scope.
+	 * @return string
+	 */
+	private static function scope_prefix( $scope ) {
+		if ( 'media' === $scope ) {
+			return 'wp-content/uploads/';
+		}
+		if ( 'theme' === $scope ) {
+			return 'wp-content/themes/';
+		}
+		if ( 'plugins' === $scope ) {
+			return 'wp-content/plugins/';
+		}
+		return '';
+	}
+
+	/**
+	 * Keep the newest archives when a retention count is set. Zero keeps every archive.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $keep_name Archive that just finished.
+	 * @return void
+	 */
+	private static function apply_retention( $keep_name ) {
+		$settings = get_option( Options::SETTINGS, array() );
+		$count    = ( is_array( $settings ) && isset( $settings['retention_count'] ) ) ? (int) $settings['retention_count'] : 0;
+		if ( $count < 1 ) {
+			return;
+		}
+		$rows  = self::archives();
+		$total = count( $rows );
+		for ( $index = $count; $index < $total; $index++ ) {
+			$name = isset( $rows[ $index ]['name'] ) ? (string) $rows[ $index ]['name'] : '';
+			if ( '' === $name || $name === $keep_name ) {
+				continue;
+			}
+			try {
+				self::delete_archive( $name );
+			} catch ( ArchiveException $exception ) {
+				unset( $exception );
+			}
+		}
+	}
+
+	/**
 	 * Whether a relative archive path should be left out.
 	 *
 	 * @since 1.0.0
@@ -868,6 +1188,9 @@ class SiteExport {
 	 */
 	private static function excluded( $relative, array $excludes, array $context ) {
 		$path = str_replace( '\\', '/', $relative );
+		if ( isset( $context['only'] ) && is_string( $context['only'] ) && '' !== $context['only'] && 0 !== strpos( $path, $context['only'] ) ) {
+			return true;
+		}
 		if ( isset( $context['storage'] ) && '' !== $context['storage'] ) {
 			$storage_rel = self::relative( WP_CONTENT_DIR, (string) $context['storage'] );
 			if ( '' !== $storage_rel && ( $path === $storage_rel || 0 === strpos( $path, $storage_rel . '/' ) ) ) {
@@ -1107,12 +1430,14 @@ class SiteExport {
 		if ( '' === $path ) {
 			throw new ArchiveException( 'That archive is not available.' );
 		}
-		$reader = new Reader( $path, $password );
-		try {
-			$reader->verify();
-			$summary = $reader->summary();
-		} finally {
-			$reader->close();
+		$summary = self::describe_stored( $path, $password );
+		if ( isset( $summary['format'] ) && 'bmx' === $summary['format'] ) {
+			$reader = new Reader( $path, $password );
+			try {
+				$reader->verify();
+			} finally {
+				$reader->close();
+			}
 		}
 		return array(
 			'status'   => 'ready',
@@ -1125,6 +1450,18 @@ class SiteExport {
 	}
 
 	/**
+	 * Whether a file name is a stored archive.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $name File name, not a path.
+	 * @return bool
+	 */
+	public static function valid_name( $name ) {
+		return 1 === preg_match( '/^[A-Za-z0-9._-]+\.(?:bmx|wpress)$/', (string) $name );
+	}
+
+	/**
 	 * Resolved archive path, or empty when the name is not safe.
 	 *
 	 * @since 1.0.0
@@ -1133,7 +1470,7 @@ class SiteExport {
 	 * @return string
 	 */
 	private static function archive_path( $name ) {
-		if ( 1 !== preg_match( '/^[A-Za-z0-9._-]+\.bmx$/', $name ) ) {
+		if ( ! self::valid_name( $name ) ) {
 			return '';
 		}
 		$path = Storage::active_path() . '/' . $name;

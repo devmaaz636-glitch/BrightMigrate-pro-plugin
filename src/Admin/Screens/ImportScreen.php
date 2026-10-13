@@ -40,13 +40,13 @@ class ImportScreen extends Screen {
 	 */
 	protected function render_body() {
 		echo '<div class="bmx-panel bmx-drop" data-bmx-drop>';
-		echo '<p class="bmx-drop-title" id="bmx-drop-label">' . esc_html__( 'Drag and drop a .bmx file to import it', 'brightmigrate-pro' ) . '</p>';
+		echo '<p class="bmx-drop-title" id="bmx-drop-label">' . esc_html__( 'Drag and drop a .wpress file to import it', 'brightmigrate-pro' ) . '</p>';
 		echo '<div class="bmx-launch">';
 		echo '<button type="button" class="bmx-split" data-bmx-pick>';
 		echo '<span class="bmx-split-label">' . esc_html__( 'Import from', 'brightmigrate-pro' ) . '</span>';
 		echo '<span class="bmx-split-target">' . esc_html__( 'File', 'brightmigrate-pro' ) . '</span>';
 		echo '</button></div>';
-		echo '<input class="screen-reader-text" type="file" accept=".bmx,application/octet-stream" data-bmx-file aria-labelledby="bmx-drop-label" />';
+		echo '<input class="screen-reader-text" type="file" accept=".wpress,.bmx,application/octet-stream" data-bmx-file aria-labelledby="bmx-drop-label" />';
 		echo '<p class="bmx-password"><label>' . esc_html__( 'Password, if the archive is encrypted', 'brightmigrate-pro' );
 		echo '<input type="password" data-bmx-upload-password autocomplete="current-password" /></label></p>';
 		echo '</div>';

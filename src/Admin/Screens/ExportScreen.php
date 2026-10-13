@@ -88,8 +88,18 @@ class ExportScreen extends Screen {
 	 * @return void
 	 */
 	private function render_full() {
-		echo '<p class="bmx-lead">' . esc_html__( 'Export this site to one .bmx file. There is no size limit. A large site finishes in short steps, and the percentage stays on screen.', 'brightmigrate-pro' ) . '</p>';
+		echo '<p class="bmx-lead">' . esc_html__( 'Export this site to one .wpress file. There is no size limit. A large site finishes in short steps, and the percentage stays on screen.', 'brightmigrate-pro' ) . '</p>';
 		echo '<div class="bmx-panel" data-bmx-export>';
+		echo '<fieldset class="bmx-scopes"><legend>' . esc_html__( 'What to migrate', 'brightmigrate-pro' ) . '</legend>';
+		foreach ( $this->scope_choices() as $key => $label ) {
+			printf(
+				'<label><input type="radio" name="bmx-scope" data-bmx-scope value="%1$s"%2$s /> %3$s</label>',
+				esc_attr( $key ),
+				checked( 'full', $key, false ),
+				esc_html( $label )
+			);
+		}
+		echo '</fieldset>';
 		echo '<div class="bmx-find">';
 		echo '<div data-bmx-pairs>';
 		echo '<div class="bmx-replace-row">';
@@ -118,7 +128,7 @@ class ExportScreen extends Screen {
 		echo '<p><label>' . esc_html__( 'Password', 'brightmigrate-pro' );
 		echo '<input type="password" data-bmx-password autocomplete="new-password" />';
 		echo '</label></p>';
-		echo '<p class="description">' . esc_html__( 'Optional. Encrypts the database inside the archive. The password is sent with each step and is not saved.', 'brightmigrate-pro' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Optional. It is sent with each step and is not saved. A .wpress file does not store a password.', 'brightmigrate-pro' ) . '</p>';
 		echo '</details>';
 
 		echo '<div class="bmx-launch">';
@@ -127,6 +137,24 @@ class ExportScreen extends Screen {
 		echo '<span class="bmx-split-target">' . esc_html__( 'File', 'brightmigrate-pro' ) . '</span>';
 		echo '</button></div>';
 		echo '</div>';
+	}
+
+	/**
+	 * Migration choices that change what the export includes.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array<string, string>
+	 */
+	private function scope_choices() {
+		return array(
+			'full'     => __( 'Full website', 'brightmigrate-pro' ),
+			'database' => __( 'Database', 'brightmigrate-pro' ),
+			'files'    => __( 'Files', 'brightmigrate-pro' ),
+			'media'    => __( 'Media library', 'brightmigrate-pro' ),
+			'theme'    => __( 'Theme and child theme', 'brightmigrate-pro' ),
+			'plugins'  => __( 'Plugins', 'brightmigrate-pro' ),
+		);
 	}
 
 	/**
@@ -194,6 +222,6 @@ class ExportScreen extends Screen {
 			return __( 'A theme kit moves the design layer: the theme, selected design pages, templates, and Elementor kit data. Other pages and posts are not included.', 'brightmigrate-pro' );
 		}
 
-		return __( 'A full site export packages the database tables for this site and wp-content into one .bmx archive.', 'brightmigrate-pro' );
+		return __( 'A full site export packages the database tables for this site and wp-content into one .wpress archive.', 'brightmigrate-pro' );
 	}
 }

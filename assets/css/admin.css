@@ -28,6 +28,21 @@
 	margin-right: auto;
 }
 
+.bmx-scopes {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px 16px;
+	margin: 0 0 22px;
+	padding: 0;
+	border: 0;
+}
+
+.bmx-scopes legend {
+	grid-column: 1 / -1;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
 .bmx-panel,
 .bmx-summary {
 	background: #fff;
@@ -369,7 +384,8 @@
 }
 
 @media (max-width: 782px) {
-	.bmx-excludes {
+	.bmx-excludes,
+	.bmx-scopes {
 		grid-template-columns: 1fr;
 	}
 

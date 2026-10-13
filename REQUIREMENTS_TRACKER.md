@@ -24,11 +24,11 @@ Status values: `todo`, `done`, `tested`.
 | M1-14 | Must | Serialisation-safe URL and path replacement, including JSON-escaped variants | todo |
 | M1-15 | Must | Preserve the admin session, then prompt to save permalinks | todo |
 | M1-16 | Must | Regenerate Elementor CSS, flush rewrite rules, clear known caches | todo |
-| M1-17 | Could | Read-only import of All-in-One WP Migration .wpress files | todo |
+| M1-17 | Could | Read-only import of All-in-One WP Migration .wpress files | tested |
 
-Full-site export runs from the Export screen in short requests. It writes one `.bmx` under storage and lists it on Backups. Find/replace is covered by `SearchReplaceTest`. Suspend and resume of an unfinished archive is covered by `ArchiveRoundTripTest`. There is no WordPress boot test for the database dump, so M1-01 is `done` rather than `tested`.
+Full-site export runs from the Export screen in short requests. It writes one `.wpress` under storage and lists it on Backups. Older `.bmx` files stay in that list. Find/replace is covered by `SearchReplaceTest`. The `.wpress` header and a short write/read round trip are covered by `WpressTest`. Suspend and resume of an unfinished `.bmx` archive is covered by `ArchiveRoundTripTest`. There is no WordPress boot test for the database dump, so M1-01 is `done` rather than `tested`.
 
-Chunked upload stores a `.bmx` and shows the archive summary. Choosing a file already in storage, a remote URL, and replacing this site are not built yet, so M1-10 and M1-12 stay `todo`. Content packs and theme kits do not export.
+Chunked upload stores a `.wpress` or `.bmx` file and shows its summary. Choosing a file already in storage, a remote URL, and replacing this site are not built yet, so M1-10 and M1-12 stay `todo`. Content packs and theme kits do not export.
 
 ## M2 — Content pack
 
@@ -70,16 +70,16 @@ Chunked upload stores a `.bmx` and shows the archive summary. Choosing a file al
 
 | ID | Priority | Requirement | Status |
 | --- | --- | --- | --- |
-| M4-01 | Must | No hard-coded file size cap | todo |
-| M4-02 | Must | Pre-flight check with plain-language results | todo |
-| M4-03 | Must | Upload chunk size auto-detected and overridable in Settings | todo |
-| M4-04 | Must | Retry a failed chunk up to 3 times with back-off | todo |
+| M4-01 | Must | No hard-coded file size cap | tested |
+| M4-02 | Must | Pre-flight check with plain-language results | done |
+| M4-03 | Must | Upload chunk size auto-detected and overridable in Settings | done |
+| M4-04 | Must | Retry a failed chunk up to 3 times with back-off | done |
 | M4-05 | Must | WP-CLI export, import, list, restore | todo |
 | M4-06 | Should | Optional split archives | todo |
-| M4-07 | Must | Database export uses primary-key pagination | todo |
+| M4-07 | Must | Database export uses primary-key pagination | done |
 | M4-08 | Should | 5 GB export in under 30 minutes on a 2 vCPU SSD VPS | todo |
 
-M4-03's setting is stored (`upload_chunk_mb`, 0 = automatic, otherwise 2–10). The engine does not read it yet, so the requirement stays `todo`.
+M4-03's setting is stored (`upload_chunk_mb`, 0 = automatic, otherwise 2–10). The import step uses that size, and shrinks it when `post_max_size` or `upload_max_filesize` is smaller, so a large site can still upload. `Limits::archive_cap()` is 0. There is no maximum archive size. A failed export step or upload chunk is tried up to three times. Before an export, the screen reports free disk, the step size, and any PHP or WordPress failure. Keeping the last N archives runs only when the retention setting is greater than zero, so existing backups stay until that number is set.
 
 ## M5 — Backups manager
 
@@ -95,7 +95,7 @@ These items have no IDs in the specification. They are tracked so they are not d
 | M5-HISTORY | Job history | todo |
 | M5-LOGS | Downloadable logs | todo |
 | M5-REPORTS | SEO Integrity Reports | todo |
-| M5-RETENTION | Keep the last N archives | todo |
+| M5-RETENTION | Keep the last N archives | done |
 | M5-EMAIL | Email notifications | todo |
 | M5-UNINSTALL | Delete archives on uninstall only when the setting is on | done |
 

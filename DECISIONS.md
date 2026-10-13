@@ -94,13 +94,13 @@ The writer remembers a hash of each archive path so the same path cannot be adde
 
 ## Export screen
 
-The full-site screen follows the same flow as a one-file migration tool: find and replace, exclude checkboxes, one Export to File button, a progress dialog, then download. The archive format stays `.bmx`. Cloud storage, SQLite, and another product's branding are not part of this plugin.
+The full-site screen follows the same flow as a one-file migration tool: find and replace, exclude checkboxes, one Export to File button, a progress dialog, then download. A new export is a `.wpress` file, the same container All-in-One WP Migration uses: a 4377-byte header per file, then the raw bytes, then an empty end block. Older `.bmx` files still download, delete, and import. Cloud storage, SQLite, and another product's branding are not part of this plugin.
 
-Each browser request works for about eight seconds, then the writer suspends. The archive password is posted again on the next request and is not written into `state.json`. Job files live under `storage/exports/{id}/` and are removed when the export finishes, fails, or is stopped. The published `.bmx` stays in the storage root.
+Each browser request works for about eight seconds, then the writer stops and the next request continues the same `.wpress` file. The archive password is not written into a `.wpress` file or into `state.json`. Job files live under `storage/exports/{id}/` and are removed when the export finishes, fails, or is stopped. The published `.wpress` stays in the storage root. An unfinished `.wpress.partial` file is deleted if the export fails or is stopped.
 
-A full export is this site's prefixed tables plus `wp-content`. WordPress core directories are not copied. Cache directories, `node_modules`, `.git`, and known backup folders are always skipped, as is BrightMigrate's own storage folder. BrightMigrate's own tables are left out of the database dump.
+A full export is this site's prefixed tables plus `wp-content`. The database is stored as `database.sql`, and `package.json` records the site address. WordPress core directories are not copied. Cache directories, `node_modules`, `.git`, and known backup folders are always skipped, as is BrightMigrate's own storage folder. BrightMigrate's own tables are left out of the database dump.
 
-Import can upload a `.bmx` in 2 MB chunks and show the manifest summary. It does not replace the current site.
+Import accepts a `.wpress` or `.bmx` upload in steps sized from the server and the upload setting, and shows the archive summary. It does not replace the current site. A failed step is tried up to three times. The finished archive has no size cap: `Limits::archive_cap()` is 0. One HTTP step is at most 10 MB, and smaller when the server cannot accept that much in one request.
 
 ## Development tools
 

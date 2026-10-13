@@ -93,7 +93,9 @@ class DashboardScreen extends Screen {
 			);
 		}
 
-		echo '</p></section>';
+		echo '</p>';
+		echo '<p>' . esc_html__( 'There is no size limit. A large site continues in short steps, and a failed step is tried again.', 'brightmigrate-pro' ) . '</p>';
+		echo '</section>';
 	}
 
 	/**

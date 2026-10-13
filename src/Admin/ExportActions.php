@@ -63,14 +63,18 @@ class ExportActions {
 		}
 
 		try {
+			if ( 'preflight' === $step ) {
+				wp_send_json_success( SiteExport::preflight() );
+			}
+
 			if ( 'start' === $step ) {
-				$id = SiteExport::start( self::excludes(), self::pairs() );
+				$id = SiteExport::start( self::excludes(), self::pairs(), self::scope() );
 				wp_send_json_success(
 					array(
 						'id'       => $id,
 						'status'   => 'running',
 						'progress' => 1,
-						'message'  => __( 'Listing files…', 'brightmigrate-pro' ),
+						'message'  => __( 'Starting…', 'brightmigrate-pro' ),
 					)
 				);
 			}
@@ -168,6 +172,27 @@ class ExportActions {
 	// phpcs:disable WordPress.Security.NonceVerification.Missing -- handle() calls check_ajax_referer() before these readers.
 
 	/**
+	 * Allow-listed migration scope from the request.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	private static function scope() {
+		$scope = 'full';
+		if ( isset( $_POST['scope'] ) ) {
+			$raw = wp_unslash( $_POST['scope'] );
+			if ( is_string( $raw ) ) {
+				$scope = sanitize_key( $raw );
+			}
+		}
+		if ( ! in_array( $scope, SiteExport::SCOPES, true ) ) {
+			return 'full';
+		}
+		return $scope;
+	}
+
+	/**
 	 * Allow-listed exclude keys from the request.
 	 *
 	 * @since 1.0.0
@@ -239,7 +264,7 @@ class ExportActions {
 				$name = basename( $raw );
 			}
 		}
-		if ( 1 !== preg_match( '/^[A-Za-z0-9._-]+\.bmx$/', $name ) ) {
+		if ( ! SiteExport::valid_name( $name ) ) {
 			throw new ArchiveException( 'That archive is not available.' );
 		}
 		return $name;

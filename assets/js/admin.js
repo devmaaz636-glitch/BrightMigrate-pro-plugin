@@ -162,7 +162,7 @@
 				return;
 			}
 			if (value instanceof window.Blob) {
-				body.append(key, value, 'chunk.bmx');
+				body.append(key, value, 'chunk.bin');
 				return;
 			}
 			body.append(
@@ -197,6 +197,41 @@
 	}
 
 	/**
+	 * Repeat a step up to three times when the connection fails.
+	 *
+	 * @param {Object}   fields     Form fields.
+	 * @param {Function} shouldStop Returns true when the user stopped the job.
+	 * @param {number}   tryNumber  Attempt count, starting at 1.
+	 * @return {Promise<Object>} Successful response data.
+	 */
+	function postRetry(fields, shouldStop, tryNumber) {
+		const attempt = tryNumber || 1;
+		return post(fields).catch(function (error) {
+			if (attempt >= 3 || (shouldStop && shouldStop())) {
+				throw error;
+			}
+			return new Promise(function (resolve) {
+				window.setTimeout(resolve, attempt * 1000);
+			}).then(function () {
+				return postRetry(fields, shouldStop, attempt + 1);
+			});
+		});
+	}
+
+	/**
+	 * Bytes in one upload step. This is not a limit on the whole site.
+	 *
+	 * @return {number} Chunk size in bytes.
+	 */
+	function chunkBytes() {
+		const value = Number(config().chunkBytes);
+		if (value >= 262144) {
+			return value;
+		}
+		return 2 * 1024 * 1024;
+	}
+
+	/**
 	 * Save a file and update the percentage from bytes received.
 	 *
 	 * @param {string} url  Download address.
@@ -216,14 +251,19 @@
 		});
 
 		let writable = null;
+		const extension =
+			name && name.toLowerCase().endsWith('.wpress') ? '.wpress' : '.bmx';
 		const openPicker = window.showSaveFilePicker
 			? window.showSaveFilePicker({
 					suggestedName: name,
 					types: [
 						{
-							description: 'BrightMigrate archive',
+							description:
+								'.wpress' === extension
+									? 'WPRESS archive'
+									: 'BrightMigrate archive',
 							accept: {
-								'application/octet-stream': ['.bmx'],
+								'application/octet-stream': [extension],
 							},
 						},
 					],
@@ -414,6 +454,11 @@
 			return keys;
 		}
 
+		function collectedScope() {
+			const picked = root.querySelector('[data-bmx-scope]:checked');
+			return picked ? picked.value : 'full';
+		}
+
 		function passwordValue() {
 			const field = root.querySelector('[data-bmx-password]');
 			return field ? field.value : '';
@@ -431,7 +476,7 @@
 			});
 			if (done && state.download) {
 				readyUrl = state.download;
-				readyName = state.file || 'brightmigrate.bmx';
+				readyName = state.file || 'brightmigrate.wpress';
 				showButtons({ save: true, copy: true, close: true });
 			}
 		}
@@ -489,10 +534,42 @@
 				excludes: collectedExcludes(),
 				pairs: collectedPairs(),
 				password: passwordValue(),
+				scope: collectedScope(),
+			};
+			const stopped = function () {
+				return stopRequested;
 			};
 
-			post(Object.assign({ step: 'start' }, fields))
+			postRetry({ step: 'preflight' }, stopped)
+				.then(function (check) {
+					if (check && 'blocked' === check.status) {
+						showButtons({ close: true });
+						showProgress({
+							title: text(
+								'failed',
+								'The export could not continue.'
+							),
+							message: check.message || '',
+							percent: 0,
+						});
+						return null;
+					}
+					if (check && check.message) {
+						showProgress({
+							title: text('exporting', 'Exporting'),
+							message: check.message,
+							percent: 1,
+						});
+					}
+					return postRetry(
+						Object.assign({ step: 'start' }, fields),
+						stopped
+					);
+				})
 				.then(function (started) {
+					if (!started || !started.id) {
+						return null;
+					}
 					let state = started;
 					applyState(state);
 
@@ -513,11 +590,14 @@
 						if (!state || 'running' !== state.status) {
 							return Promise.resolve();
 						}
-						return post({
-							step: 'tick',
-							id: started.id,
-							password: fields.password,
-						}).then(function (updated) {
+						return postRetry(
+							{
+								step: 'tick',
+								id: started.id,
+								password: fields.password,
+							},
+							stopped
+						).then(function (updated) {
 							state = updated;
 							applyState(state);
 							if ('running' === state.status && !stopRequested) {
@@ -600,7 +680,20 @@
 		}
 
 		function upload(file) {
-			const slice = 2 * 1024 * 1024;
+			const lower = (file.name || '').toLowerCase();
+			if (!lower.endsWith('.wpress') && !lower.endsWith('.bmx')) {
+				showButtons({ close: true });
+				showProgress({
+					title: text(
+						'uploadFailed',
+						'The upload could not continue.'
+					),
+					message: text('wrongType', 'Choose a .wpress file.'),
+					percent: 0,
+				});
+				return Promise.resolve();
+			}
+			const slice = chunkBytes();
 			const total = Math.max(1, Math.ceil(file.size / slice));
 			let uploadId = '';
 			let index = 0;
@@ -636,14 +729,19 @@
 					message: text('importing', 'Importing'),
 					percent,
 				});
-				return post({
-					step: 'upload',
-					id: uploadId,
-					index: String(index),
-					total: String(total),
-					password: passwordValue(),
-					chunk: blob,
-				}).then(function (data) {
+				return postRetry(
+					{
+						step: 'upload',
+						id: uploadId,
+						index: String(index),
+						total: String(total),
+						password: passwordValue(),
+						chunk: blob,
+					},
+					function () {
+						return stopRequested;
+					}
+				).then(function (data) {
 					uploadId = data.upload_id || uploadId;
 					showProgress({
 						title:
@@ -841,7 +939,7 @@
 				const action = item.getAttribute('data-bmx-act');
 				closeBackupMenus();
 				if ('download' === action && url) {
-					downloadFile(url, name || 'brightmigrate.bmx');
+					downloadFile(url, name || 'brightmigrate.wpress');
 					return;
 				}
 				if (name && ('delete' === action || 'restore' === action)) {

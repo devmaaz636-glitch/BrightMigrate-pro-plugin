@@ -119,6 +119,21 @@ class BackupsScreen extends Screen {
 		if ( false !== strpos( $name, '-full-' ) ) {
 			return __( 'Full site', 'brightmigrate-pro' );
 		}
+		if ( false !== strpos( $name, '-database-' ) ) {
+			return __( 'Database', 'brightmigrate-pro' );
+		}
+		if ( false !== strpos( $name, '-files-' ) ) {
+			return __( 'Files', 'brightmigrate-pro' );
+		}
+		if ( false !== strpos( $name, '-media-' ) ) {
+			return __( 'Media library', 'brightmigrate-pro' );
+		}
+		if ( false !== strpos( $name, '-theme-' ) ) {
+			return __( 'Theme', 'brightmigrate-pro' );
+		}
+		if ( false !== strpos( $name, '-plugins-' ) ) {
+			return __( 'Plugins', 'brightmigrate-pro' );
+		}
 		if ( false !== strpos( $name, '-import-' ) ) {
 			return __( 'Uploaded archive', 'brightmigrate-pro' );
 		}

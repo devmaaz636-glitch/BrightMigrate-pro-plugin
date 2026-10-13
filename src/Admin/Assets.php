@@ -8,6 +8,8 @@
 namespace BrightIdeas\Migrate\Admin;
 
 use BrightIdeas\Migrate\Core\Capabilities;
+use BrightIdeas\Migrate\Core\Limits;
+use BrightIdeas\Migrate\Core\Options;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -90,13 +92,18 @@ class Assets {
 
 		wp_set_script_translations( self::HANDLE, 'brightmigrate-pro', BMX_PLUGIN_DIR . 'languages' );
 
-		$config = array(
-			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-			'nonce'   => wp_create_nonce( 'brightmigrate_export' ),
-			'i18n'    => array(
+		$settings = get_option( Options::SETTINGS, array() );
+		$setting  = ( is_array( $settings ) && isset( $settings['upload_chunk_mb'] ) ) ? (int) $settings['upload_chunk_mb'] : 0;
+		$config   = array(
+			'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+			'nonce'      => wp_create_nonce( 'brightmigrate_export' ),
+			'chunkBytes' => Limits::chunk_bytes( $setting, (string) ini_get( 'post_max_size' ), (string) ini_get( 'upload_max_filesize' ) ),
+			'i18n'       => array(
 				'failed'         => __( 'The export could not continue.', 'brightmigrate-pro' ),
+				'retrying'       => __( 'The connection failed. Retrying…', 'brightmigrate-pro' ),
 				'stopped'        => __( 'Export stopped.', 'brightmigrate-pro' ),
 				'uploadFailed'   => __( 'The upload could not continue.', 'brightmigrate-pro' ),
+				'wrongType'      => __( 'Choose a .wpress file.', 'brightmigrate-pro' ),
 				'working'        => __( 'Working…', 'brightmigrate-pro' ),
 				'copied'         => __( 'Download link copied.', 'brightmigrate-pro' ),
 				'exporting'      => __( 'Exporting', 'brightmigrate-pro' ),
