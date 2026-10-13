@@ -21,3 +21,143 @@
 .bmx-screen section {
 	margin-top: 1.5em;
 }
+
+.bmx-card,
+.bmx-summary,
+.bmx-drop {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	max-width: 720px;
+	margin-top: 16px;
+	padding: 20px 24px;
+}
+
+.bmx-replace-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+
+.bmx-replace-row label {
+	flex: 1 1 240px;
+}
+
+.bmx-replace-row input,
+.bmx-card input[type="password"],
+.bmx-drop input[type="password"] {
+	display: block;
+	width: 100%;
+	margin-top: 4px;
+}
+
+.bmx-excludes label {
+	display: block;
+	margin: 6px 0;
+}
+
+.bmx-advanced {
+	margin-top: 16px;
+}
+
+.bmx-export-button {
+	display: inline-flex;
+	align-items: stretch;
+	margin-top: 8px;
+	padding: 0;
+	border: 0;
+	border-radius: 4px;
+	background: #2271b1;
+	color: #fff;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.4;
+	cursor: pointer;
+	overflow: hidden;
+}
+
+.bmx-export-button-label,
+.bmx-export-button-target {
+	padding: 12px 18px;
+}
+
+.bmx-export-button-target {
+	background: #135e96;
+}
+
+.bmx-export-button:hover,
+.bmx-export-button:focus {
+	background: #135e96;
+	color: #fff;
+}
+
+.bmx-export-button:disabled {
+	opacity: 0.7;
+	cursor: progress;
+}
+
+.bmx-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.55);
+	padding: 16px;
+}
+
+.bmx-modal[hidden] {
+	display: none;
+}
+
+.bmx-modal-card {
+	width: min(480px, 100%);
+	background: #fff;
+	border-radius: 4px;
+	padding: 24px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.bmx-progress {
+	height: 16px;
+	margin: 12px 0;
+	background: #dcdcde;
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+.bmx-progress > span {
+	display: block;
+	height: 100%;
+	width: 0;
+	background: #2271b1;
+}
+
+.bmx-drop {
+	border-style: dashed;
+	border-width: 2px;
+	text-align: center;
+}
+
+.bmx-drop.is-over {
+	border-color: #2271b1;
+	background: #f0f6fc;
+}
+
+.bmx-summary dl {
+	display: grid;
+	grid-template-columns: 160px 1fr;
+	gap: 8px 12px;
+	margin: 0;
+}
+
+.bmx-summary dt {
+	font-weight: 600;
+}
+
+.bmx-summary dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}

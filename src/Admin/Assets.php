@@ -89,5 +89,22 @@ class Assets {
 		);
 
 		wp_set_script_translations( self::HANDLE, 'brightmigrate-pro', BMX_PLUGIN_DIR . 'languages' );
+
+		$config = array(
+			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+			'nonce'   => wp_create_nonce( 'brightmigrate_export' ),
+			'i18n'    => array(
+				'failed'       => __( 'The export could not continue.', 'brightmigrate-pro' ),
+				'stopped'      => __( 'Export stopped.', 'brightmigrate-pro' ),
+				'uploadFailed' => __( 'The upload could not continue.', 'brightmigrate-pro' ),
+				'working'      => __( 'Working…', 'brightmigrate-pro' ),
+				'copied'       => __( 'Download link copied.', 'brightmigrate-pro' ),
+			),
+		);
+		wp_add_inline_script(
+			self::HANDLE,
+			'window.brightmigrateAdmin = ' . wp_json_encode( $config ) . ';',
+			'before'
+		);
 	}
 }

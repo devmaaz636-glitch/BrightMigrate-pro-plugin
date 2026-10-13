@@ -370,6 +370,75 @@ class ArchiveRoundTripTest extends TestCase {
 	}
 
 	/**
+	 * Suspend keeps the work directory so another writer can finish it.
+	 */
+	public function test_suspend_and_resume_writes_both_files() {
+		$dir = $this->temp_dir();
+		$this->put( $dir . '/a.txt', 'alpha' );
+		$this->put( $dir . '/b.txt', 'beta' );
+		$archive = $dir . '/site.bmx';
+		$writer  = new Writer(
+			$archive,
+			array(
+				'type' => 'full',
+			)
+		);
+		$writer->add_file( $dir . '/a.txt', 'a.txt' );
+		$work = $writer->suspend();
+		unset( $writer );
+		$this->assertDirectoryExists( $work );
+
+		$writer = Writer::resume( $work );
+		$writer->add_file( $dir . '/b.txt', 'b.txt' );
+		$this->assertSame( array( $archive ), $writer->finish() );
+
+		$reader = new Reader( $archive );
+		$seen   = array();
+		$reader->each(
+			static function ( $entry ) use ( &$seen ) {
+				$seen[] = $entry['path'];
+			}
+		);
+		$this->assertSame( array( 'a.txt', 'b.txt' ), $seen );
+		$this->assertTrue( $reader->verify() );
+		$reader->close();
+		$this->assertDirectoryDoesNotExist( $work );
+	}
+
+	/**
+	 * A wrong password does not delete a suspended archive or echo the password.
+	 */
+	public function test_resume_rejects_a_missing_password_and_keeps_the_work_directory() {
+		if ( ! Crypto::available() ) {
+			$this->markTestSkipped( 'OpenSSL AES-256-GCM is not available.' );
+		}
+		$dir = $this->temp_dir();
+		$this->put( $dir . '/a.txt', 'alpha' );
+		$archive = $dir . '/secret.bmx';
+		$writer  = new Writer(
+			$archive,
+			array(
+				'password' => 'correct horse',
+			)
+		);
+		$writer->add_database_file( $dir . '/a.txt', 'database/site.sql' );
+		$work = $writer->suspend();
+		unset( $writer );
+
+		try {
+			Writer::resume( $work, '' );
+			$this->fail( 'Resume accepted an empty password.' );
+		} catch ( ArchiveException $exception ) {
+			$this->assertStringNotContainsString( 'correct horse', $exception->getMessage() );
+		}
+		$this->assertDirectoryExists( $work );
+
+		$writer = Writer::resume( $work, 'correct horse' );
+		$this->assertSame( array( $archive ), $writer->finish() );
+		$this->assertDirectoryDoesNotExist( $work );
+	}
+
+	/**
 	 * Read the 256-byte header.
 	 *
 	 * @param string $path Archive path.

@@ -92,6 +92,16 @@ Executable blocking is a content-pack rule. A full-site extract may contain PHP.
 
 The writer remembers a hash of each archive path so the same path cannot be added twice. That set is the one place path identity stays in memory. File bytes are still copied in 512 KB buffers.
 
+## Export screen
+
+The full-site screen follows the same flow as a one-file migration tool: find and replace, exclude checkboxes, one Export to File button, a progress dialog, then download. The archive format stays `.bmx`. Cloud storage, SQLite, and another product's branding are not part of this plugin.
+
+Each browser request works for about eight seconds, then the writer suspends. The archive password is posted again on the next request and is not written into `state.json`. Job files live under `storage/exports/{id}/` and are removed when the export finishes, fails, or is stopped. The published `.bmx` stays in the storage root.
+
+A full export is this site's prefixed tables plus `wp-content`. WordPress core directories are not copied. Cache directories, `node_modules`, `.git`, and known backup folders are always skipped, as is BrightMigrate's own storage folder. BrightMigrate's own tables are left out of the database dump.
+
+Import can upload a `.bmx` in 2 MB chunks and show the manifest summary. It does not replace the current site.
+
 ## Development tools
 
 Runtime code has no Composer dependencies. `vendor/autoload.php` is used when present; otherwise `Autoloader` loads `src/`. PHPUnit 9.6 keeps PHP 7.4 coverage. `composer.json` sets `platform.php` to 7.4.33 so development packages stay compatible with the minimum PHP version.

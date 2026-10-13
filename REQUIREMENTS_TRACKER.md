@@ -8,23 +8,27 @@ Status values: `todo`, `done`, `tested`.
 
 | ID | Priority | Requirement | Status |
 | --- | --- | --- | --- |
-| M1-01 | Must | Export all site-prefix tables and wp-content into one .bmx | todo |
-| M1-02 | Must | Exclude checkboxes (media, themes, inactive themes, plugins, inactive plugins, must-use plugins, cache, spam comments, revisions, database) | todo |
+| M1-01 | Must | Export all site-prefix tables and wp-content into one .bmx | done |
+| M1-02 | Must | Exclude checkboxes (media, themes, inactive themes, plugins, inactive plugins, must-use plugins, cache, spam comments, revisions, database) | done |
 | M1-03 | Must | Custom exclusion list | todo |
-| M1-04 | Should | Find and replace pairs at export, serialisation-safe | todo |
-| M1-05 | Must | Always auto-exclude own storage, other backup folders, node_modules, .git, cache directories | todo |
-| M1-06 | Must | Live progress with stage, percentage, files, MB, time remaining, aria-live | todo |
-| M1-07 | Must | Cancel deletes partial files | todo |
-| M1-08 | Must | Download, copy expiring signed link, keep on server | todo |
-| M1-09 | Should | Optional AES-256 password for the database dump and manifest | todo |
+| M1-04 | Should | Find and replace pairs at export, serialisation-safe | tested |
+| M1-05 | Must | Always auto-exclude own storage, other backup folders, node_modules, .git, cache directories | done |
+| M1-06 | Must | Live progress with stage, percentage, files, MB, time remaining, aria-live | done |
+| M1-07 | Must | Cancel deletes partial files | done |
+| M1-08 | Must | Download, copy expiring signed link, keep on server | done |
+| M1-09 | Should | Optional AES-256 password for the database dump and manifest | done |
 | M1-10 | Must | Import from chunked upload, storage file, or remote URL | todo |
-| M1-11 | Must | Show the manifest before import | todo |
+| M1-11 | Must | Show the manifest before import | done |
 | M1-12 | Must | Overwrite warning with typed or ticked confirmation | todo |
 | M1-13 | Should | Safety database snapshot before overwrite, can be disabled | todo |
 | M1-14 | Must | Serialisation-safe URL and path replacement, including JSON-escaped variants | todo |
 | M1-15 | Must | Preserve the admin session, then prompt to save permalinks | todo |
 | M1-16 | Must | Regenerate Elementor CSS, flush rewrite rules, clear known caches | todo |
 | M1-17 | Could | Read-only import of All-in-One WP Migration .wpress files | todo |
+
+Full-site export runs from the Export screen in short requests. It writes one `.bmx` under storage and lists it on Backups. Find/replace is covered by `SearchReplaceTest`. Suspend and resume of an unfinished archive is covered by `ArchiveRoundTripTest`. There is no WordPress boot test for the database dump, so M1-01 is `done` rather than `tested`.
+
+Chunked upload stores a `.bmx` and shows the archive summary. Choosing a file already in storage, a remote URL, and replacing this site are not built yet, so M1-10 and M1-12 stay `todo`. Content packs and theme kits do not export.
 
 ## M2 — Content pack
 

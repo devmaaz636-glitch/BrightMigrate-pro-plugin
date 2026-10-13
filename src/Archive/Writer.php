@@ -230,6 +230,15 @@ class Writer {
 	private $aborted = false;
 
 	/**
+	 * suspend() left the work directory on disk for another request.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @var bool
+	 */
+	private $suspended = false;
+
+	/**
 	 * Prepare a new archive at $destination.
 	 *
 	 * @since 1.0.0
@@ -238,9 +247,53 @@ class Writer {
 	 * @param array  $options     password, encrypt_files, split_bytes, type, and manifest strings.
 	 */
 	public function __construct( $destination, array $options = array() ) {
+		if ( isset( $options['resume_work'] ) && is_string( $options['resume_work'] ) ) {
+			$this->load_resume( $options['resume_work'], $options );
+			return;
+		}
 		$this->prepare_options( $destination, $options );
 		$this->make_work();
 		$this->open_part();
+	}
+
+	/**
+	 * Continue an archive that suspend() left on disk.
+	 *
+	 * The password is derived again and then discarded. It is not read from disk.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $work     Work directory returned by suspend().
+	 * @param string $password Archive password, or an empty string.
+	 * @return self
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	public static function resume( $work, $password = '' ) {
+		return new self(
+			'',
+			array(
+				'resume_work' => $work,
+				'password'    => $password,
+			)
+		);
+	}
+
+	/**
+	 * Close the archive without publishing it, so a later request can resume.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string Work directory.
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	public function suspend() {
+		if ( $this->finished || $this->aborted ) {
+			throw new ArchiveException( 'This archive is already closed.' );
+		}
+		$this->close_handles();
+		$this->write_resume_state();
+		$this->suspended = true;
+		return $this->work;
 	}
 
 	/**
@@ -977,7 +1030,7 @@ class Writer {
 	 * @return void
 	 */
 	private function abort() {
-		if ( $this->finished || $this->aborted ) {
+		if ( $this->finished || $this->aborted || $this->suspended ) {
 			return;
 		}
 		$this->aborted = true;
@@ -1013,5 +1066,129 @@ class Writer {
 		}
 		closedir( $handle );
 		rmdir( $this->work );
+	}
+
+	/**
+	 * Write the counters needed to open this work directory again.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return void
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	private function write_resume_state() {
+		$sealed = array();
+		foreach ( $this->sealed as $path ) {
+			$sealed[] = basename( (string) $path );
+		}
+		$state = array(
+			'format'        => 'bmx-work',
+			'destination'   => $this->destination,
+			'type'          => $this->type,
+			'split_bytes'   => $this->split_bytes,
+			'encrypt_files' => $this->encrypt_files,
+			'salt'          => base64_encode( $this->salt ),
+			'created'       => $this->created,
+			'meta'          => $this->meta,
+			'part_index'    => $this->part_index,
+			'payload_size'  => $this->payload_size,
+			'file_count'    => $this->file_count,
+			'db_count'      => $this->db_count,
+			'byte_count'    => $this->byte_count,
+			'sealed'        => $sealed,
+			'seen'          => array_keys( $this->seen ),
+		);
+		$encoded = Manifest::encode( $state );
+		$handle  = Stream::open( $this->work . '/state.json', 'wb' );
+		try {
+			Stream::write_all( $handle, $encoded );
+		} finally {
+			fclose( $handle );
+		}
+	}
+
+	/**
+	 * Open a suspended work directory.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $work    Work directory.
+	 * @param array  $options Caller options. Only the password is read.
+	 * @return void
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	private function load_resume( $work, array $options ) {
+		$this->suspended = true;
+		if ( '' === $work || is_link( $work ) || ! is_dir( $work ) || ! is_file( $work . '/state.json' ) ) {
+			$this->work = '';
+			throw new ArchiveException( 'Could not resume the archive.' );
+		}
+		$this->work = $work;
+		$handle     = Stream::open( $work . '/state.json', 'rb' );
+		try {
+			$raw = stream_get_contents( $handle, 8388608 );
+		} finally {
+			fclose( $handle );
+		}
+		if ( ! is_string( $raw ) || '' === $raw ) {
+			throw new ArchiveException( 'Could not resume the archive.' );
+		}
+		$state = json_decode( $raw, true );
+		if ( ! is_array( $state ) || ! isset( $state['format'] ) || 'bmx-work' !== $state['format'] ) {
+			throw new ArchiveException( 'Could not resume the archive.' );
+		}
+
+		$this->destination   = (string) $state['destination'];
+		$this->type          = (string) $state['type'];
+		$this->split_bytes   = (int) $state['split_bytes'];
+		$this->encrypt_files = ! empty( $state['encrypt_files'] );
+		$this->created       = (int) $state['created'];
+		$this->meta          = is_array( $state['meta'] ) ? $state['meta'] : array();
+		$this->part_index    = (int) $state['part_index'];
+		$this->payload_size  = (int) $state['payload_size'];
+		$this->file_count    = (int) $state['file_count'];
+		$this->db_count      = (int) $state['db_count'];
+		$this->byte_count    = (int) $state['byte_count'];
+		$this->salt          = base64_decode( (string) $state['salt'], true );
+		if ( ! is_string( $this->salt ) ) {
+			$this->salt = '';
+		}
+		$this->seen   = array();
+		$this->sealed = array();
+		if ( is_array( $state['seen'] ) ) {
+			foreach ( $state['seen'] as $hash ) {
+				if ( is_string( $hash ) && '' !== $hash ) {
+					$this->seen[ $hash ] = true;
+				}
+			}
+		}
+		if ( is_array( $state['sealed'] ) ) {
+			foreach ( $state['sealed'] as $name ) {
+				if ( is_string( $name ) && '' !== $name && false === strpos( $name, '/' ) && false === strpos( $name, '\\' ) ) {
+					$this->sealed[] = $work . '/' . $name;
+				}
+			}
+		}
+
+		$password = isset( $options['password'] ) ? (string) $options['password'] : '';
+		if ( '' !== $this->salt ) {
+			if ( '' === $password ) {
+				throw new ArchiveException( 'Could not encrypt this archive. Check the password.' );
+			}
+			$this->key = Crypto::key( $password, $this->salt, Format::KDF_ITERATIONS );
+			$password  = '';
+		} else {
+			$this->key = null;
+		}
+
+		$this->payload_path = $work . '/payload';
+		$this->index_path   = $work . '/index';
+		$this->payload      = Stream::open( $this->payload_path, 'r+b' );
+		$this->index        = Stream::open( $this->index_path, 'ab' );
+		Format::assert_offset( $this->payload_size );
+		if ( 0 !== fseek( $this->payload, $this->payload_size, SEEK_SET ) ) {
+			throw new ArchiveException( 'Could not resume the archive.' );
+		}
+		$this->suspended = false;
 	}
 }

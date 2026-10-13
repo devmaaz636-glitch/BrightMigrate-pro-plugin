@@ -8,6 +8,7 @@
 namespace BrightIdeas\Migrate\Core;
 
 use BrightIdeas\Migrate\Admin\Assets;
+use BrightIdeas\Migrate\Admin\ExportActions;
 use BrightIdeas\Migrate\Admin\Menu;
 use BrightIdeas\Migrate\Admin\SettingsScreen;
 
@@ -49,6 +50,7 @@ class Plugin {
 			Menu::hooks();
 			Assets::hooks();
 			SettingsScreen::hooks();
+			ExportActions::hooks();
 		}
 
 		add_action( Options::INSTALL_HOOK, array( Activator::class, 'process_install_batch' ) );

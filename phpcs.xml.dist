@@ -48,6 +48,7 @@
 		<exclude-pattern>*/src/Core/Storage.php</exclude-pattern>
 		<exclude-pattern>*/src/Core/Logger.php</exclude-pattern>
 		<exclude-pattern>*/src/Archive/*</exclude-pattern>
+		<exclude-pattern>*/src/Export/*</exclude-pattern>
 		<exclude-pattern>*/tests/*</exclude-pattern>
 	</rule>
 	<rule ref="WordPress.PHP.DevelopmentFunctions">
