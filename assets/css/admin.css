@@ -1,0 +1,23 @@
+/**
+ * BrightMigrate Pro admin styles.
+ */
+
+.bmx-screen a:focus,
+.bmx-screen button:focus,
+.bmx-screen input:focus,
+.bmx-screen select:focus,
+.bmx-screen textarea:focus {
+	outline: 2px solid #2271b1;
+	outline-offset: 2px;
+}
+
+.bmx-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 1em 0;
+}
+
+.bmx-screen section {
+	margin-top: 1.5em;
+}

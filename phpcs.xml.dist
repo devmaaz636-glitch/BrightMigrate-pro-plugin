@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<ruleset name="BrightMigrate Pro">
+	<description>WordPress Coding Standards for BrightMigrate Pro.</description>
+
+	<file>.</file>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/languages/*</exclude-pattern>
+	<exclude-pattern>composer-setup.php</exclude-pattern>
+	<exclude-pattern>composer.phar</exclude-pattern>
+
+	<arg value="ps"/>
+	<arg name="basepath" value="."/>
+	<arg name="colors"/>
+	<arg name="extensions" value="php"/>
+	<arg name="parallel" value="8"/>
+
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_wp_version" value="6.2"/>
+
+	<!--
+		PSR-4 class files use the class name (Plugin.php). WordPress.Files.FileName
+		expects class-plugin.php, which cannot autoload under Composer PSR-4.
+	-->
+	<rule ref="WordPress-Extra">
+		<exclude name="WordPress.Files.FileName"/>
+	</rule>
+	<rule ref="WordPress-Docs"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="BrightIdeas\Migrate"/>
+				<element value="brightmigrate"/>
+				<element value="bmx_"/>
+				<element value="BMX_"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		Native streams are required for multi-gigabyte archives. WP_Filesystem
+		may demand FTP credentials and is not used for those reads and writes.
+		The test suite runs without WordPress.
+	-->
+	<rule ref="WordPress.WP.AlternativeFunctions">
+		<exclude-pattern>*/src/Core/Storage.php</exclude-pattern>
+		<exclude-pattern>*/src/Core/Logger.php</exclude-pattern>
+		<exclude-pattern>*/src/Archive/*</exclude-pattern>
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DevelopmentFunctions">
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="brightmigrate-pro"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>

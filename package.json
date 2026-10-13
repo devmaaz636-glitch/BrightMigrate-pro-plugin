@@ -1,0 +1,20 @@
+{
+  "name": "brightmigrate-pro",
+  "private": true,
+  "description": "BrightMigrate Pro admin assets",
+  "license": "GPL-2.0-or-later",
+  "scripts": {
+    "lint:js": "eslint assets/js",
+    "lint:css": "stylelint \"assets/css/**/*.css\""
+  },
+  "devDependencies": {
+    "@wordpress/eslint-plugin": "^22.15.0",
+    "@wordpress/stylelint-config": "^23.1.0",
+    "eslint": "^8.57.1",
+    "stylelint": "^16.23.0",
+    "typescript": "~5.6.3"
+  },
+  "overrides": {
+    "typescript": "~5.6.3"
+  }
+}
