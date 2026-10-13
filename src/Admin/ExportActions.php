@@ -92,6 +92,20 @@ class ExportActions {
 			if ( 'upload' === $step ) {
 				wp_send_json_success( self::upload() );
 			}
+
+			if ( 'delete' === $step ) {
+				SiteExport::delete_archive( self::archive_name() );
+				wp_send_json_success(
+					array(
+						'status'  => 'deleted',
+						'message' => __( 'Backup deleted.', 'brightmigrate-pro' ),
+					)
+				);
+			}
+
+			if ( 'restore' === $step ) {
+				wp_send_json_success( SiteExport::inspect_archive( self::archive_name(), self::password() ) );
+			}
 		} catch ( ArchiveException $exception ) {
 			wp_send_json_error(
 				array(
@@ -207,6 +221,28 @@ class ExportActions {
 			);
 		}
 		return $pairs;
+	}
+
+	/**
+	 * Archive file name from the request.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	private static function archive_name() {
+		$name = '';
+		if ( isset( $_POST['file'] ) ) {
+			$raw = wp_unslash( $_POST['file'] );
+			if ( is_string( $raw ) ) {
+				$name = basename( $raw );
+			}
+		}
+		if ( 1 !== preg_match( '/^[A-Za-z0-9._-]+\.bmx$/', $name ) ) {
+			throw new ArchiveException( 'That archive is not available.' );
+		}
+		return $name;
 	}
 
 	/**

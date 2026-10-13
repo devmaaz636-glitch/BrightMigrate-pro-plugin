@@ -269,6 +269,105 @@
 	box-shadow: none;
 }
 
+.bmx-row-actions {
+	position: relative;
+	width: 72px;
+	text-align: right;
+	overflow: visible;
+}
+
+.bmx-kebab {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	background: #fff;
+	color: #1d2327;
+	cursor: pointer;
+}
+
+.bmx-kebab svg {
+	display: block;
+	fill: currentColor;
+}
+
+.bmx-kebab:hover,
+.bmx-kebab:focus,
+.bmx-kebab[aria-expanded="true"] {
+	border-color: #2271b1;
+	color: #2271b1;
+	background: #f0f6fc;
+}
+
+.bmx-menu {
+	z-index: 100001;
+	min-width: 196px;
+	margin: 0;
+	padding: 6px 0;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+	text-align: left;
+}
+
+.bmx-menu button {
+	display: block;
+	width: 100%;
+	margin: 0;
+	padding: 10px 16px;
+	border: 0;
+	background: transparent;
+	color: #1d2327;
+	font-size: 14px;
+	line-height: 1.4;
+	text-align: left;
+	cursor: pointer;
+}
+
+.bmx-menu button:hover,
+.bmx-menu button:focus {
+	background: #f0f6fc;
+	color: #135e96;
+}
+
+.bmx-menu button.is-danger {
+	color: #b32d2e;
+}
+
+.bmx-menu button.is-danger:hover,
+.bmx-menu button.is-danger:focus {
+	background: #fcf0f1;
+	color: #8a2424;
+}
+
+.bmx-confirm-file {
+	margin: 12px 0;
+	padding: 10px 12px;
+	background: #f6f7f7;
+	border-radius: 4px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 13px;
+	overflow-wrap: anywhere;
+}
+
+.bmx-modal .button.is-danger {
+	background: #b32d2e;
+	border-color: #b32d2e;
+	color: #fff;
+}
+
+.bmx-modal .button.is-danger:hover,
+.bmx-modal .button.is-danger:focus {
+	background: #8a2424;
+	border-color: #8a2424;
+	color: #fff;
+}
+
 @media (max-width: 782px) {
 	.bmx-excludes {
 		grid-template-columns: 1fr;

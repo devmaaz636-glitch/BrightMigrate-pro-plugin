@@ -1077,6 +1077,54 @@ class SiteExport {
 	}
 
 	/**
+	 * Delete one archive from storage.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $name File name, not a path.
+	 * @return void
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	public static function delete_archive( $name ) {
+		$path = self::archive_path( basename( (string) $name ) );
+		if ( '' === $path || ! unlink( $path ) ) {
+			throw new ArchiveException( 'That archive is not available.' );
+		}
+	}
+
+	/**
+	 * Read an archive summary without changing this site.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $name     File name, not a path.
+	 * @param string $password Password for an encrypted archive.
+	 * @return array
+	 * @throws ArchiveException When this step cannot finish safely.
+	 */
+	public static function inspect_archive( $name, $password ) {
+		$path = self::archive_path( basename( (string) $name ) );
+		if ( '' === $path ) {
+			throw new ArchiveException( 'That archive is not available.' );
+		}
+		$reader = new Reader( $path, $password );
+		try {
+			$reader->verify();
+			$summary = $reader->summary();
+		} finally {
+			$reader->close();
+		}
+		return array(
+			'status'   => 'ready',
+			'progress' => 100,
+			'message'  => __( 'The backup is valid. Replacing this live site is the next step, so nothing was changed.', 'brightmigrate-pro' ),
+			'file'     => basename( $path ),
+			'files'    => isset( $summary['contents']['files'] ) ? (int) $summary['contents']['files'] : 0,
+			'type'     => isset( $summary['type'] ) ? (string) $summary['type'] : '',
+		);
+	}
+
+	/**
 	 * Resolved archive path, or empty when the name is not safe.
 	 *
 	 * @since 1.0.0

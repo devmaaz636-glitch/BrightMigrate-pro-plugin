@@ -72,16 +72,39 @@ class BackupsScreen extends Screen {
 			echo '<td>' . esc_html( Format::bytes( $row['size'] ) ) . '</td>';
 			echo '<td>' . esc_html( $this->archive_date( (int) $row['date'] ) ) . '</td>';
 			echo '<td>' . esc_html( $this->archive_source( $name ) ) . '</td>';
+			echo '<td class="bmx-row-actions">';
 			printf(
-				'<td><button type="button" class="button bmx-file-download" data-bmx-file-url="%1$s" data-bmx-file-name="%2$s">%3$s</button></td>',
+				'<button type="button" class="bmx-kebab" data-bmx-file-url="%1$s" data-bmx-file-name="%2$s" aria-haspopup="menu" aria-expanded="false" aria-label="%3$s"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="3.2" r="1.35"></circle><circle cx="8" cy="8" r="1.35"></circle><circle cx="8" cy="12.8" r="1.35"></circle></svg></button>',
 				esc_url( (string) $row['url'] ),
 				esc_attr( $name ),
-				esc_html__( 'Download', 'brightmigrate-pro' )
+				esc_attr(
+					sprintf(
+						/* translators: %s: archive file name. */
+						__( 'Actions for %s', 'brightmigrate-pro' ),
+						$name
+					)
+				)
 			);
+			echo '<div class="bmx-menu" hidden role="menu">';
+			echo '<button type="button" role="menuitem" data-bmx-act="download">' . esc_html__( 'Download', 'brightmigrate-pro' ) . '</button>';
+			echo '<button type="button" role="menuitem" data-bmx-act="restore">' . esc_html__( 'Restore', 'brightmigrate-pro' ) . '</button>';
+			echo '<button type="button" role="menuitem" class="is-danger" data-bmx-act="delete">' . esc_html__( 'Delete', 'brightmigrate-pro' ) . '</button>';
+			echo '</div></td>';
 			echo '</tr>';
 		}
 
 		echo '</tbody></table></div>';
+		echo '<div class="bmx-modal" hidden data-bmx-confirm role="dialog" aria-modal="true" aria-labelledby="bmx-confirm-title">';
+		echo '<div class="bmx-modal-card">';
+		echo '<h2 id="bmx-confirm-title" data-bmx-confirm-title></h2>';
+		echo '<p class="bmx-confirm-file" data-bmx-confirm-file></p>';
+		echo '<p class="bmx-modal-status" data-bmx-confirm-message></p>';
+		echo '<p class="bmx-password" hidden data-bmx-confirm-password-wrap><label>' . esc_html__( 'Password, if the archive is encrypted', 'brightmigrate-pro' );
+		echo '<input type="password" data-bmx-confirm-password autocomplete="current-password" /></label></p>';
+		echo '<p class="bmx-actions">';
+		echo '<button type="button" class="button" data-bmx-confirm-cancel>' . esc_html__( 'Cancel', 'brightmigrate-pro' ) . '</button>';
+		echo '<button type="button" class="button button-primary" data-bmx-confirm-ok></button>';
+		echo '</p></div></div>';
 	}
 
 	/**

@@ -721,24 +721,236 @@
 	}
 
 	/**
-	 * Download buttons on the Backups screen.
+	 * Close every backup action menu.
 	 *
 	 * @return {void}
 	 */
-	function bindDownloads() {
-		document
-			.querySelectorAll('.bmx-file-download')
-			.forEach(function (button) {
-				button.addEventListener('click', function () {
-					const url = button.getAttribute('data-bmx-file-url');
-					const name =
-						button.getAttribute('data-bmx-file-name') ||
-						'brightmigrate.bmx';
-					if (url) {
-						downloadFile(url, name);
-					}
-				});
+	function closeBackupMenus() {
+		document.querySelectorAll('.bmx-menu').forEach(function (menu) {
+			menu.hidden = true;
+		});
+		document.querySelectorAll('.bmx-kebab').forEach(function (button) {
+			button.setAttribute('aria-expanded', 'false');
+		});
+	}
+
+	/**
+	 * Three-dot menus for download, restore, and delete.
+	 *
+	 * @return {void}
+	 */
+	function bindBackupMenus() {
+		const confirmBox = document.querySelector('[data-bmx-confirm]');
+		if (!confirmBox) {
+			return;
+		}
+		const title = confirmBox.querySelector('[data-bmx-confirm-title]');
+		const file = confirmBox.querySelector('[data-bmx-confirm-file]');
+		const message = confirmBox.querySelector('[data-bmx-confirm-message]');
+		const passwordWrap = confirmBox.querySelector(
+			'[data-bmx-confirm-password-wrap]'
+		);
+		const password = confirmBox.querySelector(
+			'[data-bmx-confirm-password]'
+		);
+		const cancel = confirmBox.querySelector('[data-bmx-confirm-cancel]');
+		const ok = confirmBox.querySelector('[data-bmx-confirm-ok]');
+		let pending = null;
+
+		function hideConfirm() {
+			confirmBox.hidden = true;
+			pending = null;
+			if (password) {
+				password.value = '';
+			}
+		}
+
+		function openConfirm(action, name) {
+			pending = {
+				action,
+				name,
+			};
+			if (title) {
+				title.textContent =
+					'delete' === action
+						? text('deleteTitle', 'Delete backup')
+						: text('restoreTitle', 'Restore backup');
+			}
+			if (file) {
+				file.textContent = name;
+			}
+			if (message) {
+				message.textContent =
+					'delete' === action
+						? text(
+								'deleteBody',
+								'Delete this backup from the server? The file cannot be recovered.'
+							)
+						: text(
+								'restoreBody',
+								'This checks the backup and shows its details. The live site is not replaced yet.'
+							);
+			}
+			if (passwordWrap) {
+				passwordWrap.hidden = 'restore' !== action;
+			}
+			if (ok) {
+				ok.textContent =
+					'delete' === action
+						? text('deleteAction', 'Delete')
+						: text('restoreAction', 'Check backup');
+				ok.classList.toggle('is-danger', 'delete' === action);
+			}
+			confirmBox.hidden = false;
+			if (ok) {
+				ok.focus();
+			}
+		}
+
+		document.querySelectorAll('.bmx-kebab').forEach(function (button) {
+			button.addEventListener('click', function (event) {
+				event.stopPropagation();
+				const menu = button.parentElement
+					? button.parentElement.querySelector('.bmx-menu')
+					: null;
+				const wasClosed = !menu || menu.hidden;
+				closeBackupMenus();
+				if (menu && wasClosed) {
+					const rect = button.getBoundingClientRect();
+					menu.hidden = false;
+					menu.style.position = 'fixed';
+					menu.style.top = rect.bottom + 6 + 'px';
+					menu.style.left =
+						Math.max(8, rect.right - menu.offsetWidth) + 'px';
+					button.setAttribute('aria-expanded', 'true');
+				}
 			});
+		});
+
+		document.querySelectorAll('.bmx-menu button').forEach(function (item) {
+			item.addEventListener('click', function (event) {
+				event.stopPropagation();
+				const cell = item.closest('.bmx-row-actions');
+				const kebab = cell ? cell.querySelector('.bmx-kebab') : null;
+				const name = kebab
+					? kebab.getAttribute('data-bmx-file-name')
+					: '';
+				const url = kebab
+					? kebab.getAttribute('data-bmx-file-url')
+					: '';
+				const action = item.getAttribute('data-bmx-act');
+				closeBackupMenus();
+				if ('download' === action && url) {
+					downloadFile(url, name || 'brightmigrate.bmx');
+					return;
+				}
+				if (name && ('delete' === action || 'restore' === action)) {
+					openConfirm(action, name);
+				}
+			});
+		});
+
+		document.addEventListener('click', closeBackupMenus);
+		document.addEventListener('keydown', function (event) {
+			if ('Escape' === event.key) {
+				closeBackupMenus();
+				hideConfirm();
+			}
+		});
+
+		if (cancel) {
+			cancel.addEventListener('click', hideConfirm);
+		}
+
+		if (ok) {
+			ok.addEventListener('click', function () {
+				if (!pending) {
+					return;
+				}
+				const action = pending.action;
+				const name = pending.name;
+				const secret = password ? password.value : '';
+				hideConfirm();
+				if ('delete' === action) {
+					post({
+						step: 'delete',
+						file: name,
+					})
+						.then(function () {
+							const row = document.querySelector(
+								'.bmx-kebab[data-bmx-file-name="' +
+									name.replace(/"/g, '') +
+									'"]'
+							);
+							const tr = row ? row.closest('tr') : null;
+							if (tr) {
+								tr.remove();
+							}
+							const body =
+								document.querySelector('.bmx-backups tbody');
+							if (body && !body.querySelector('tr')) {
+								const empty = document.createElement('tr');
+								const cell = document.createElement('td');
+								cell.colSpan = 6;
+								cell.textContent = text(
+									'none',
+									'No archives yet.'
+								);
+								empty.appendChild(cell);
+								body.appendChild(empty);
+							}
+						})
+						.catch(function (error) {
+							showButtons({ close: true });
+							showProgress({
+								title: text('deleteTitle', 'Delete backup'),
+								message:
+									error && error.message
+										? error.message
+										: text(
+												'failed',
+												'The export could not continue.'
+											),
+								percent: 0,
+							});
+						});
+					return;
+				}
+				showButtons({ stop: false, close: false });
+				showProgress({
+					title: text('checking', 'Checking the backup'),
+					message: text('checking', 'Checking the backup'),
+					percent: 15,
+				});
+				post({
+					step: 'restore',
+					file: name,
+					password: secret,
+				})
+					.then(function (data) {
+						showButtons({ close: true });
+						showProgress({
+							title: text('restoreTitle', 'Restore backup'),
+							message: data.message || '',
+							percent: 100,
+						});
+					})
+					.catch(function (error) {
+						showButtons({ close: true });
+						showProgress({
+							title: text('restoreTitle', 'Restore backup'),
+							message:
+								error && error.message
+									? error.message
+									: text(
+											'failed',
+											'The export could not continue.'
+										),
+							percent: 0,
+						});
+					});
+			});
+		}
 	}
 
 	document.addEventListener('DOMContentLoaded', function () {
@@ -759,6 +971,6 @@
 		}
 		bindExport();
 		bindImport();
-		bindDownloads();
+		bindBackupMenus();
 	});
 })();

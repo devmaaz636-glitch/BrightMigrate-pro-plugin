@@ -107,6 +107,16 @@ class Assets {
 				'downloadDone'   => __( 'Download complete', 'brightmigrate-pro' ),
 				'downloadFailed' => __( 'The download could not finish.', 'brightmigrate-pro' ),
 				'cancelled'      => __( 'Cancelled.', 'brightmigrate-pro' ),
+				'restoreTitle'   => __( 'Restore backup', 'brightmigrate-pro' ),
+				'restoreBody'    => __( 'This checks the backup and shows its details. The live site is not replaced yet.', 'brightmigrate-pro' ),
+				'restoreAction'  => __( 'Check backup', 'brightmigrate-pro' ),
+				'checking'       => __( 'Checking the backup', 'brightmigrate-pro' ),
+				'deleteTitle'    => __( 'Delete backup', 'brightmigrate-pro' ),
+				'deleteBody'     => __( 'Delete this backup from the server? The file cannot be recovered.', 'brightmigrate-pro' ),
+				'deleteAction'   => __( 'Delete', 'brightmigrate-pro' ),
+				'deleted'        => __( 'Backup deleted.', 'brightmigrate-pro' ),
+				'none'           => __( 'No archives yet.', 'brightmigrate-pro' ),
+				'actions'        => __( 'Backup actions', 'brightmigrate-pro' ),
 			),
 		);
 		wp_add_inline_script(
